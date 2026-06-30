@@ -104,6 +104,24 @@ describe('EchartsMarketDemo', () => {
     endDragInPriceArea(420)
   })
 
+  it('shrinks the expanded left edge when dragging the whitespace area right', () => {
+    window.history.pushState({}, '', '/topics/echarts')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '日K' }))
+    startDragInPriceArea(320)
+    moveDragInPriceArea(420)
+    endDragInPriceArea(420)
+    const expandedWindow = screen.getByTestId('window-range').textContent
+
+    startDragInWhitespace(320)
+    moveDragInWhitespace(420)
+
+    expect(screen.getByTestId('window-range').textContent).not.toBe(expandedWindow)
+    expect(screen.getByTestId('window-range')).toHaveTextContent('06/30 03:55')
+  })
+
   it('reacts to short five-day drags instead of waiting for a large fixed step', () => {
     window.history.pushState({}, '', '/topics/echarts')
 
@@ -132,15 +150,15 @@ describe('EchartsMarketDemo', () => {
     expect(screen.getByTestId('chart-shell')).not.toHaveClass('is-rebounding')
   })
 
-  it('ignores drags above the filled price area', () => {
+  it('ignores drags outside the price grid', () => {
     window.history.pushState({}, '', '/topics/echarts')
 
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '日K' }))
-    dragInChart({ startClientX: 320, endClientX: 420, offsetX: 320, offsetY: 20 })
+    dragInChart({ startClientX: 320, endClientX: 420, offsetX: 20, offsetY: 20 })
 
-    expect(screen.getByTestId('window-range')).toHaveTextContent('05/31')
+    expect(screen.getByTestId('window-range')).toHaveTextContent('05/31 21:30')
     expect(screen.queryByRole('button', { name: /恢复拖拽前视图/i })).not.toBeInTheDocument()
   })
 })
@@ -180,6 +198,28 @@ function endDragInPriceArea(clientX: number) {
     echartsMock.handlers.get('mouseup')?.({
       offsetX: 780 + clientX - dragStartClientX,
       offsetY: 280,
+      event: { clientX },
+    })
+  })
+}
+
+function startDragInWhitespace(startClientX: number) {
+  dragStartClientX = startClientX
+
+  act(() => {
+    echartsMock.handlers.get('mousedown')?.({
+      offsetX: 780,
+      offsetY: 40,
+      event: { clientX: startClientX },
+    })
+  })
+}
+
+function moveDragInWhitespace(clientX: number) {
+  act(() => {
+    echartsMock.handlers.get('mousemove')?.({
+      offsetX: 780 + clientX - dragStartClientX,
+      offsetY: 40,
       event: { clientX },
     })
   })

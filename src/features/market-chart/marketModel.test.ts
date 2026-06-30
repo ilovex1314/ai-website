@@ -9,7 +9,9 @@ import {
   getRange,
   getTrend,
   isPointInPriceArea,
+  isPointInPriceWhitespace,
   rangeKeys,
+  shrinkWindow,
 } from './marketModel'
 
 describe('marketModel', () => {
@@ -89,8 +91,8 @@ describe('marketModel', () => {
     const current = buildVisibleSeries(data, 'day')
     const older = expandWindow(data, current, 'right', 78)
 
-    expect(formatWindowRange(current)).toBe('05/31 - 06/30')
-    expect(formatWindowRange(older.view)).toBe('05/30 - 06/30')
+    expect(formatWindowRange(current)).toBe('05/31 21:30 - 06/30 03:55')
+    expect(formatWindowRange(older.view)).toBe('05/30 21:30 - 06/30 03:55')
     expect(older.view.rawPoints.length).toBeGreaterThan(current.rawPoints.length)
     expect(older.view.visiblePoints.length).toBeLessThanOrEqual(getRange('day').targetPoints)
   })
@@ -116,6 +118,31 @@ describe('marketModel', () => {
     expect(isPointInPriceArea({ x: 100, y: 80 }, points, geometry)).toBe(true)
     expect(isPointInPriceArea({ x: 100, y: 20 }, points, geometry)).toBe(false)
     expect(isPointInPriceArea({ x: 250, y: 80 }, points, geometry)).toBe(false)
+  })
+
+  it('detects drag starts inside the whitespace above the curved price line', () => {
+    const points = [
+      { timestamp: 1, price: 10, volume: 1, turnover: 1 },
+      { timestamp: 2, price: 15, volume: 1, turnover: 1 },
+      { timestamp: 3, price: 20, volume: 1, turnover: 1 },
+    ]
+    const geometry = { left: 0, right: 200, top: 0, bottom: 100, minPrice: 10, maxPrice: 20 }
+
+    expect(isPointInPriceWhitespace({ x: 100, y: 20 }, points, geometry)).toBe(true)
+    expect(isPointInPriceWhitespace({ x: 100, y: 80 }, points, geometry)).toBe(false)
+    expect(isPointInPriceWhitespace({ x: 250, y: 20 }, points, geometry)).toBe(false)
+  })
+
+  it('shrinks draggable windows from the opposite edge', () => {
+    const data = createMarketData()
+    const current = buildVisibleSeries(data, 'fiveDay')
+    const trimLeft = shrinkWindow(data, current, 'right', 6)
+    const trimRight = shrinkWindow(data, current, 'left', 6)
+
+    expect(trimLeft.view.windowStart).toBe(current.windowStart + 6)
+    expect(trimLeft.view.windowEnd).toBe(current.windowEnd)
+    expect(trimRight.view.windowStart).toBe(current.windowStart)
+    expect(trimRight.view.windowEnd).toBe(current.windowEnd - 6)
   })
 
   it('formats tooltip rows with trading fields', () => {

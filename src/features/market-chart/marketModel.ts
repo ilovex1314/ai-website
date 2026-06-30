@@ -233,6 +233,30 @@ export function expandWindow(
   }
 }
 
+export function shrinkWindow(
+  data: MarketPoint[],
+  current: VisibleSeries,
+  direction: PanDirection,
+  pointCount = 1,
+) {
+  if (!current.range.draggable) {
+    return { view: current, rebounded: true }
+  }
+
+  const step = Math.max(1, Math.round(pointCount))
+  const nextStart = direction === 'right' ? current.windowStart + step : current.windowStart
+  const nextEnd = direction === 'left' ? current.windowEnd - step : current.windowEnd
+  const minWindowSize = 2
+  const clampedStart = clamp(nextStart, 0, current.windowEnd - minWindowSize)
+  const clampedEnd = clamp(nextEnd, clampedStart + minWindowSize, data.length)
+  const rebounded = nextStart !== clampedStart || nextEnd !== clampedEnd
+
+  return {
+    view: buildVisibleSeries(data, current.range.key, clampedStart, clampedEnd),
+    rebounded,
+  }
+}
+
 export function isPointInPriceArea(
   point: { x: number; y: number },
   visiblePoints: MarketPoint[],
@@ -249,10 +273,30 @@ export function isPointInPriceArea(
   }
 
   const xRatio = (point.x - geometry.left) / (geometry.right - geometry.left)
-  const pointIndex = clamp(Math.round(xRatio * (visiblePoints.length - 1)), 0, visiblePoints.length - 1)
-  const lineY = priceToY(visiblePoints[pointIndex].price, geometry)
+  const lineY = getLineYAtRatio(xRatio, visiblePoints, geometry)
 
   return point.y >= lineY && point.y <= geometry.bottom
+}
+
+export function isPointInPriceWhitespace(
+  point: { x: number; y: number },
+  visiblePoints: MarketPoint[],
+  geometry: PriceAreaGeometry,
+) {
+  if (
+    visiblePoints.length < 2 ||
+    point.x < geometry.left ||
+    point.x > geometry.right ||
+    point.y < geometry.top ||
+    point.y > geometry.bottom
+  ) {
+    return false
+  }
+
+  const xRatio = (point.x - geometry.left) / (geometry.right - geometry.left)
+  const lineY = getLineYAtRatio(xRatio, visiblePoints, geometry)
+
+  return point.y >= geometry.top && point.y < lineY
 }
 
 export function formatWindowRange(view: VisibleSeries) {
@@ -263,7 +307,7 @@ export function formatWindowRange(view: VisibleSeries) {
     return ''
   }
 
-  return `${formatDate(first.timestamp)} - ${formatDate(last.timestamp)}`
+  return `${formatTime(first.timestamp)} - ${formatTime(last.timestamp)}`
 }
 
 export function getTrend(points: MarketPoint[]) {
@@ -300,14 +344,6 @@ export function formatTime(timestamp: number) {
   }).format(timestamp)
 }
 
-function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: 'America/New_York',
-  }).format(timestamp)
-}
-
 function average(values: number[]) {
   return sum(values) / values.length
 }
@@ -332,6 +368,15 @@ function priceToY(price: number, geometry: PriceAreaGeometry) {
 
   const priceRatio = (price - geometry.minPrice) / (geometry.maxPrice - geometry.minPrice)
   return geometry.bottom - priceRatio * (geometry.bottom - geometry.top)
+}
+
+function getLineYAtRatio(
+  xRatio: number,
+  visiblePoints: MarketPoint[],
+  geometry: PriceAreaGeometry,
+) {
+  const pointIndex = clamp(Math.round(xRatio * (visiblePoints.length - 1)), 0, visiblePoints.length - 1)
+  return priceToY(visiblePoints[pointIndex].price, geometry)
 }
 
 function signed(value: number, digits: number) {

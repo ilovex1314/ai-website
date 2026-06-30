@@ -18,7 +18,9 @@ import {
   formatTime,
   getTrend,
   isPointInPriceArea,
+  isPointInPriceWhitespace,
   rangeKeys,
+  shrinkWindow,
   type MarketPoint,
   type RangeKey,
   type VisibleSeries,
@@ -28,6 +30,7 @@ import './EchartsMarketDemo.css'
 const priceGrid = { left: 42, right: 36, top: 18, height: 300 }
 const volumeGrid = { left: 42, right: 36, top: 342, height: 82 }
 const minDragPixels = 2
+type DragMode = 'expand' | 'shrink'
 
 echartsUse([
   LineChart,
@@ -72,7 +75,7 @@ export function EchartsMarketDemo() {
     dragBaseViewRef.current = null
   }
 
-  function startAreaDrag() {
+  function startAreaDrag(_mode: DragMode) {
     if (!view.range.draggable) {
       flashRebound('right')
       return
@@ -82,7 +85,7 @@ export function EchartsMarketDemo() {
     setIsAreaDragging(true)
   }
 
-  function previewAreaDrag(delta: number, plotWidth: number) {
+  function previewAreaDrag(delta: number, plotWidth: number, mode: DragMode) {
     const baseView = dragBaseViewRef.current
     const pointCount = getDragPointCount(delta, baseView, plotWidth)
 
@@ -96,7 +99,10 @@ export function EchartsMarketDemo() {
     }
 
     const direction = delta < 0 ? 'left' : 'right'
-    const next = expandWindow(data, baseView, direction, pointCount)
+    const next =
+      mode === 'expand'
+        ? expandWindow(data, baseView, direction, pointCount)
+        : shrinkWindow(data, baseView, direction, pointCount)
 
     if (!rebackView && !next.rebounded) {
       setRebackView(baseView)
@@ -105,7 +111,7 @@ export function EchartsMarketDemo() {
     setView(next.view)
 
     if (next.rebounded) {
-      flashRebound(direction === 'left' ? 'right' : 'left')
+      flashRebound(getReboundEdge(mode, direction))
     }
   }
 
@@ -200,7 +206,7 @@ export function EchartsMarketDemo() {
 
         <p className="drag-hint">
           {view.range.draggable
-            ? '拖拽曲线下方的填充区域：向右加入更早数据，向左加入更新数据。'
+            ? '拖拽填充区扩展范围；拖拽曲线上方白色区收回范围。'
             : '分时图不支持拖拽，切换到 5日 / 日K / 周K 等范围后可拖拽。'}
         </p>
         <p className="window-range" data-testid="window-range">
@@ -242,8 +248,8 @@ function MarketChart({
   trendColor: string
   trendSoftColor: string
   isDragging: boolean
-  onAreaDragStart: () => void
-  onAreaDragMove: (delta: number, plotWidth: number) => void
+  onAreaDragStart: (mode: DragMode) => void
+  onAreaDragMove: (delta: number, plotWidth: number, mode: DragMode) => void
   onAreaDragEnd: () => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -253,6 +259,7 @@ function MarketChart({
   const onAreaDragMoveRef = useRef(onAreaDragMove)
   const onAreaDragEndRef = useRef(onAreaDragEnd)
   const dragStartXRef = useRef<number | null>(null)
+  const dragModeRef = useRef<DragMode | null>(null)
 
   useEffect(() => {
     viewRef.current = view
@@ -282,18 +289,21 @@ function MarketChart({
 
     function handleDragStart(event: ZRenderPointerEvent) {
       const dragPoint = toDragPoint(event)
+      const mode = dragPoint ? getDragModeAtPoint(chart, viewRef.current, dragPoint) : null
 
-      if (!dragPoint || !isPointInsideCurrentPriceArea(chart, viewRef.current, dragPoint)) {
+      if (!dragPoint || !mode) {
         dragStartXRef.current = null
+        dragModeRef.current = null
         return
       }
 
       dragStartXRef.current = dragPoint.clientX
-      onAreaDragStartRef.current()
+      dragModeRef.current = mode
+      onAreaDragStartRef.current(mode)
     }
 
     function handleDragMove(event: ZRenderPointerEvent) {
-      if (dragStartXRef.current === null) {
+      if (dragStartXRef.current === null || dragModeRef.current === null) {
         return
       }
 
@@ -303,7 +313,11 @@ function MarketChart({
         return
       }
 
-      onAreaDragMoveRef.current(dragPoint.clientX - dragStartXRef.current, getPricePlotWidth(chart))
+      onAreaDragMoveRef.current(
+        dragPoint.clientX - dragStartXRef.current,
+        getPricePlotWidth(chart),
+        dragModeRef.current,
+      )
     }
 
     function handleDragEnd() {
@@ -312,6 +326,7 @@ function MarketChart({
       }
 
       dragStartXRef.current = null
+      dragModeRef.current = null
       onAreaDragEndRef.current()
     }
 
@@ -350,6 +365,14 @@ function getDragPointCount(delta: number, baseView: VisibleSeries | null, plotWi
   return Math.max(1, Math.round(Math.abs(delta) * pointsPerPixel))
 }
 
+function getReboundEdge(mode: DragMode, direction: 'left' | 'right') {
+  if (mode === 'expand') {
+    return direction === 'left' ? 'right' : 'left'
+  }
+
+  return direction === 'left' ? 'right' : 'left'
+}
+
 type ZRenderPointerEvent = {
   offsetX?: number
   offsetY?: number
@@ -384,7 +407,7 @@ function toDragPoint(event: ZRenderPointerEvent) {
   }
 }
 
-function isPointInsideCurrentPriceArea(
+function getDragModeAtPoint(
   chart: AreaDragChart,
   view: VisibleSeries,
   point: { x: number; y: number },
@@ -393,17 +416,27 @@ function isPointInsideCurrentPriceArea(
   const prices = view.visiblePoints.map((visiblePoint) => visiblePoint.price)
 
   if (!view.range.draggable || chartWidth <= 0 || prices.length === 0) {
-    return false
+    return null
   }
 
-  return isPointInPriceArea(point, view.visiblePoints, {
+  const geometry = {
     left: priceGrid.left,
     right: chartWidth - priceGrid.right,
     top: priceGrid.top,
     bottom: priceGrid.top + priceGrid.height,
     minPrice: Math.min(...prices),
     maxPrice: Math.max(...prices),
-  })
+  }
+
+  if (isPointInPriceArea(point, view.visiblePoints, geometry)) {
+    return 'expand'
+  }
+
+  if (isPointInPriceWhitespace(point, view.visiblePoints, geometry)) {
+    return 'shrink'
+  }
+
+  return null
 }
 
 function getPricePlotWidth(chart: AreaDragChart) {
