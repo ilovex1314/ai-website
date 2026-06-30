@@ -93,6 +93,27 @@
   gap: 24px;
 }
 
+.market-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.market-card-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #ffd1da;
+  border-radius: 10px;
+  color: #f04462;
+  background: #fff6f8;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .market-card h2 {
   font-size: clamp(1.7rem, 4vw, 2.6rem);
 }

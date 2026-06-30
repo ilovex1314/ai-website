@@ -17,6 +17,9 @@ dist-ssr
 videos/**/renders/
 videos/**/*.wav
 videos/**/*.aiff
+videos/**/.hyperframes/
+videos/**/.waveform-cache/
+videos/**/snapshots/
 
 # Editor directories and files
 .vscode/*

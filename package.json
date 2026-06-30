@@ -8,7 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "video:preview:echarts": "npx hyperframes preview videos/echarts-vibecoding-guide --port 3017",
+    "video:render:echarts": "npx hyperframes render videos/echarts-vibecoding-guide --output videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.mp4 --quality standard --fps 30",
+    "video:mux:echarts": "ffmpeg -y -i videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.mp4 -i videos/echarts-vibecoding-guide/renders/narration-yunxi-fit.m4a -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 160k -shortest videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.tmp.mp4 && mv videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.tmp.mp4 videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.mp4",
+    "video:publish:echarts": "mkdir -p public/videos/echarts-vibecoding-guide && cp videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.mp4 public/videos/echarts-vibecoding-guide/echarts-vibecoding-guide-voiceover.mp4",
+    "video:build:echarts": "npm run video:render:echarts && npm run video:mux:echarts && npm run video:publish:echarts"
   },
   "dependencies": {
     "echarts": "^6.1.0",

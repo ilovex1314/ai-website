@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ECharts 行情图 vibe-coding 复盘</title>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
@@ -526,183 +526,317 @@
         font-size: 24px;
         color: #667085;
       }
+
+      #scene-1 .page {
+        inset: 72px 128px auto;
+        height: 300px;
+      }
+
+      #scene-1 h1 {
+        max-width: 980px;
+        font-size: 72px;
+        line-height: 1.06;
+      }
+
+      #scene-1 .lead {
+        max-width: 960px;
+        margin-top: 18px;
+        font-size: 27px;
+        line-height: 1.42;
+      }
+
+      #scene-1 .pill-row {
+        margin-top: 20px;
+      }
+
+      #scene-1 .pill {
+        padding: 12px 18px;
+        font-size: 23px;
+      }
+
+      #scene-1 .chart-shell {
+        left: 128px;
+        right: 128px;
+        top: 500px !important;
+        bottom: auto !important;
+        height: 300px !important;
+      }
+
+      #scene-1 .chart-head {
+        top: 22px;
+        left: 44px;
+      }
+
+      #scene-1 .price {
+        font-size: 42px;
+      }
+
+      #scene-1 .delta {
+        font-size: 26px;
+      }
+
+      #scene-1 .mock-chart {
+        top: 90px;
+        bottom: 46px;
+      }
+
+      #scene-1 .volume-bars {
+        height: 42px;
+      }
+
+      #scene-3 .page {
+        inset: 72px 104px auto;
+        height: 270px;
+      }
+
+      #scene-3 h2 {
+        max-width: 900px;
+        font-size: 52px;
+      }
+
+      #scene-3 .lead {
+        max-width: 820px;
+        margin-top: 22px;
+        font-size: 30px;
+        line-height: 1.42;
+      }
+
+      #scene-3 .image-card {
+        left: 128px !important;
+        top: 402px !important;
+        width: 820px !important;
+        height: 390px !important;
+      }
+
+      #scene-3 .code-panel {
+        right: 128px;
+        top: 332px;
+        width: 650px;
+        padding: 32px;
+        font-size: 23px;
+        line-height: 1.55;
+      }
+
+      #scene-5 .page {
+        inset: 72px 128px auto;
+        height: 230px;
+      }
+
+      #scene-5 h2 {
+        max-width: 1260px;
+        font-size: 54px;
+      }
+
+      #scene-5 .white-zone {
+        left: 246px;
+        top: 312px;
+        width: 1220px;
+        height: 112px;
+      }
+
+      #scene-5 .drag-zone {
+        left: 246px;
+        top: 424px;
+        width: 1220px;
+        height: 292px;
+      }
+
+      #scene-5 > svg.chart-svg {
+        left: 246px !important;
+        top: 312px !important;
+        width: 1220px !important;
+        height: 404px !important;
+      }
+
+      #scene-5 .annotation {
+        font-size: 23px;
+      }
+
+      #scene-5 .annotation:nth-of-type(1) {
+        left: 272px !important;
+        top: 344px !important;
+      }
+
+      #scene-5 .annotation:nth-of-type(2) {
+        left: 272px !important;
+        top: 582px !important;
+      }
+
+      #scene-5 .arrow {
+        left: 990px !important;
+        top: 574px !important;
+        width: 260px !important;
+      }
     </style>
   </head>
   <body>
-    <div
-      id="root"
-      data-composition-id="echarts-vibecoding-guide"
-      data-width="1920"
-      data-height="1080"
-      data-start="0"
-      data-duration="100"
-    >
-      <div id="scene-1" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">vibe-coding 复盘</span></div>
-          <h1>从需求到可复现 Demo：ECharts 行情图</h1>
-          <p class="lead">一个复杂图表交互如何从“能画出来”，迭代到“读者可以照着复现”。</p>
-          <div class="pill-row">
-            <span class="pill active">React + Vite</span>
-            <span class="pill active">ECharts</span>
-            <span class="pill">拖拽窗口</span>
-            <span class="pill">中文指引</span>
+    <div data-hf-id="hf-vp1a" id="root" data-composition-id="echarts-vibecoding-guide" data-width="1920" data-height="1080" data-start="0" data-duration="100">
+      <div data-hf-id="hf-lio4" id="scene-1" class="scene">
+        <div data-hf-id="hf-9tvl" class="page">
+          <div data-hf-id="hf-o5lv" class="topline"><span data-hf-id="hf-9gry" class="dot"></span><span data-hf-id="hf-cqi8" class="eyebrow">vibe-coding 复盘</span></div>
+          <h1 data-hf-id="hf-htnm">从需求到可复现 Demo：ECharts 行情图</h1>
+          <p data-hf-id="hf-jh96" class="lead">一个复杂图表交互如何从“能画出来”，迭代到“读者可以照着复现”。</p>
+          <div data-hf-id="hf-t5je" class="pill-row">
+            <span data-hf-id="hf-102a" class="pill active">React + Vite</span>
+            <span data-hf-id="hf-olko" class="pill active">ECharts</span>
+            <span data-hf-id="hf-d1s3" class="pill">拖拽窗口</span>
+            <span data-hf-id="hf-u950" class="pill">中文指引</span>
           </div>
         </div>
-        <div class="chart-shell" style="height: 500px; bottom: 126px" data-layout-allow-overlap>
-          <div class="chart-head"><span class="price">25820.144↑</span><span class="delta">+2.07%</span></div>
-          <div class="mock-chart">
-            <span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span>
-            <svg class="chart-svg" viewBox="0 0 1600 360" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="redFade" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#f0445f" stop-opacity="0.32" />
-                  <stop offset="62%" stop-color="#f0445f" stop-opacity="0.12" />
-                  <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        <div data-hf-id="hf-2hmg" class="chart-shell" style="height: 300px; top: 500px; bottom: auto" data-layout-allow-overlap="">
+          <div data-hf-id="hf-wu4n" class="chart-head"><span data-hf-id="hf-ct7b" class="price">25820.144↑</span><span data-hf-id="hf-kcg2" class="delta">+2.07%</span></div>
+          <div data-hf-id="hf-mbwl" class="mock-chart">
+            <span data-hf-id="hf-4dio" class="grid-line"></span><span data-hf-id="hf-lyrs" class="grid-line"></span><span data-hf-id="hf-krup" class="grid-line"></span><span data-hf-id="hf-l65q" class="grid-line"></span>
+            <svg data-hf-id="hf-ssw9" class="chart-svg" viewBox="0 0 1600 360" preserveAspectRatio="none">
+              <defs data-hf-id="hf-mh0t">
+                <linearGradient data-hf-id="hf-ofin" id="redFade" x1="0" y1="0" x2="0" y2="1">
+                  <stop data-hf-id="hf-m5pe" offset="0%" stop-color="#f0445f" stop-opacity="0.32" />
+                  <stop data-hf-id="hf-i9ys" offset="62%" stop-color="#f0445f" stop-opacity="0.12" />
+                  <stop data-hf-id="hf-kd0n" offset="100%" stop-color="#ffffff" stop-opacity="0" />
                 </linearGradient>
               </defs>
-              <path class="chart-fill" d="M0,235 C70,160 120,190 180,135 C260,55 320,250 420,205 C520,150 580,180 690,130 C820,70 900,170 1010,120 C1120,62 1200,128 1320,82 C1430,40 1500,88 1600,34 L1600,360 L0,360 Z" />
-              <path class="chart-line" d="M0,235 C70,160 120,190 180,135 C260,55 320,250 420,205 C520,150 580,180 690,130 C820,70 900,170 1010,120 C1120,62 1200,128 1320,82 C1430,40 1500,88 1600,34" />
+              <path data-hf-id="hf-tfqo" class="chart-fill" d="M0,235 C70,160 120,190 180,135 C260,55 320,250 420,205 C520,150 580,180 690,130 C820,70 900,170 1010,120 C1120,62 1200,128 1320,82 C1430,40 1500,88 1600,34 L1600,360 L0,360 Z" />
+              <path data-hf-id="hf-9mks" class="chart-line" d="M0,235 C70,160 120,190 180,135 C260,55 320,250 420,205 C520,150 580,180 690,130 C820,70 900,170 1010,120 C1120,62 1200,128 1320,82 C1430,40 1500,88 1600,34" />
             </svg>
-            <div class="volume-bars">
-              <i style="height: 62px"></i><i style="height: 18px"></i><i style="height: 12px"></i><i style="height: 22px"></i><i style="height: 14px"></i><i style="height: 17px"></i>
-              <i style="height: 15px"></i><i style="height: 20px"></i><i style="height: 13px"></i><i style="height: 16px"></i><i style="height: 14px"></i><i style="height: 21px"></i>
-              <i style="height: 12px"></i><i style="height: 15px"></i><i style="height: 13px"></i><i style="height: 17px"></i><i style="height: 14px"></i><i style="height: 18px"></i>
-              <i style="height: 16px"></i><i style="height: 14px"></i><i style="height: 13px"></i><i style="height: 16px"></i><i style="height: 15px"></i><i style="height: 17px"></i>
-              <i style="height: 14px"></i><i style="height: 18px"></i><i style="height: 20px"></i><i style="height: 16px"></i><i style="height: 14px"></i><i style="height: 19px"></i>
-              <i style="height: 18px"></i><i style="height: 24px"></i><i style="height: 22px"></i><i style="height: 26px"></i><i style="height: 28px"></i><i style="height: 70px"></i>
+            <div data-hf-id="hf-ivo9" class="volume-bars">
+              <i data-hf-id="hf-ap8q" style="height: 62px"></i><i data-hf-id="hf-wn99" style="height: 18px"></i><i data-hf-id="hf-bbw7" style="height: 12px"></i><i data-hf-id="hf-a5hi" style="height: 22px"></i><i data-hf-id="hf-iigx" style="height: 14px"></i><i data-hf-id="hf-0hq2" style="height: 17px"></i>
+              <i data-hf-id="hf-3po0" style="height: 15px"></i><i data-hf-id="hf-ddfg" style="height: 20px"></i><i data-hf-id="hf-vdzy" style="height: 13px"></i><i data-hf-id="hf-igz7" style="height: 16px"></i><i data-hf-id="hf-mj9x" style="height: 14px"></i><i data-hf-id="hf-s68d" style="height: 21px"></i>
+              <i data-hf-id="hf-m8l3" style="height: 12px"></i><i data-hf-id="hf-db48" style="height: 15px"></i><i data-hf-id="hf-xnk2" style="height: 13px"></i><i data-hf-id="hf-ezj2" style="height: 17px"></i><i data-hf-id="hf-nq70" style="height: 14px"></i><i data-hf-id="hf-afgx" style="height: 18px"></i>
+              <i data-hf-id="hf-5bkj" style="height: 16px"></i><i data-hf-id="hf-nbvz" style="height: 14px"></i><i data-hf-id="hf-y1v3" style="height: 13px"></i><i data-hf-id="hf-4x9i" style="height: 16px"></i><i data-hf-id="hf-c475" style="height: 15px"></i><i data-hf-id="hf-fdu3" style="height: 17px"></i>
+              <i data-hf-id="hf-oit2" style="height: 14px"></i><i data-hf-id="hf-bme0" style="height: 18px"></i><i data-hf-id="hf-uugk" style="height: 20px"></i><i data-hf-id="hf-4iyh" style="height: 16px"></i><i data-hf-id="hf-o4i1" style="height: 14px"></i><i data-hf-id="hf-hugc" style="height: 19px"></i>
+              <i data-hf-id="hf-b82z" style="height: 18px"></i><i data-hf-id="hf-a3zs" style="height: 24px"></i><i data-hf-id="hf-279m" style="height: 22px"></i><i data-hf-id="hf-f97m" style="height: 26px"></i><i data-hf-id="hf-u4x0" style="height: 28px"></i><i data-hf-id="hf-70yb" style="height: 70px"></i>
             </div>
           </div>
         </div>
       </div>
 
-      <div id="scene-2" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">目标不是一张静态图</span></div>
-          <h2>这次验证的是复杂图表交互的收敛能力</h2>
-          <div class="steps">
-            <div class="step"><strong>行情信息</strong><span>x 轴是时间，y 轴是价格，hover 展示涨跌额、涨跌幅、成交量、成交额。</span></div>
-            <div class="step"><strong>范围切换</strong><span>分时、5日、日K、周K、月K、季K、年K共用同一套窗口模型。</span></div>
-            <div class="step"><strong>拖拽窗口</strong><span>不是平移图表，而是在固定画布里扩展或收缩 x 轴覆盖范围。</span></div>
+      <div data-hf-id="hf-we5r" id="scene-2" class="scene">
+        <div data-hf-id="hf-b7h1" class="page">
+          <div data-hf-id="hf-pz6r" class="topline"><span data-hf-id="hf-zcc2" class="dot"></span><span data-hf-id="hf-agtf" class="eyebrow">目标不是一张静态图</span></div>
+          <h2 data-hf-id="hf-u1f3">这次验证的是复杂图表交互的收敛能力</h2>
+          <div data-hf-id="hf-70xd" class="steps">
+            <div data-hf-id="hf-uqbq" class="step"><strong data-hf-id="hf-3suh">行情信息</strong><span data-hf-id="hf-czsp">x 轴是时间，y 轴是价格，hover 展示涨跌额、涨跌幅、成交量、成交额。</span></div>
+            <div data-hf-id="hf-jlje" class="step"><strong data-hf-id="hf-1i6s">范围切换</strong><span data-hf-id="hf-qthi">分时、5日、日K、周K、月K、季K、年K共用同一套窗口模型。</span></div>
+            <div data-hf-id="hf-jzuf" class="step"><strong data-hf-id="hf-krbp">拖拽窗口</strong><span data-hf-id="hf-d974">不是平移图表，而是在固定画布里扩展或收缩 x 轴覆盖范围。</span></div>
           </div>
-          <p class="lead">所以核心工作不是“画线”，而是把用户描述里的交互语义翻译成稳定的数据窗口。</p>
+          <p data-hf-id="hf-7w07" class="lead">所以核心工作不是“画线”，而是把用户描述里的交互语义翻译成稳定的数据窗口。</p>
         </div>
       </div>
 
-      <div id="scene-3" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">技术选型</span></div>
-          <h2>克制一点：先把 Demo 做成可跑、可测、可复现</h2>
-          <p class="lead">React + Vite 负责页面组织，ECharts 负责图表能力，数据先用确定性模拟，避免接口、跨域和停盘影响迭代。</p>
+      <div data-hf-id="hf-q8fy" id="scene-3" class="scene">
+        <div data-hf-id="hf-cee4" class="page">
+          <div data-hf-id="hf-pkvq" class="topline"><span data-hf-id="hf-zqn3" class="dot"></span><span data-hf-id="hf-qcoj" class="eyebrow">技术选型</span></div>
+          <h2 data-hf-id="hf-uvs4">克制一点：先把 Demo 做成可跑、可测、可复现</h2>
+          <p data-hf-id="hf-fxwe" class="lead">React + Vite 负责页面组织，ECharts 负责图表能力，数据先用确定性模拟，避免接口、跨域和停盘影响迭代。</p>
         </div>
-        <div class="image-card" style="left: 104px; top: 440px; width: 890px; height: 430px">
-          <img src="./assets/local-demo.png" alt="本地运行的 ECharts 行情图 Demo" />
+        <div data-hf-id="hf-0p8j" class="image-card" style="left: 104px; top: 440px; width: 890px; height: 430px">
+          <img data-hf-id="hf-fvqz" src="./assets/local-demo.png" alt="本地运行的 ECharts 行情图 Demo">
         </div>
-        <div class="panel code-panel">
-          npm install echarts<br />
-          echartsUse([<br />
-          &nbsp;&nbsp;<b>LineChart</b>, BarChart,<br />
-          &nbsp;&nbsp;GridComponent,<br />
-          &nbsp;&nbsp;TooltipComponent,<br />
-          &nbsp;&nbsp;CanvasRenderer<br />
+        <div data-hf-id="hf-wiw7" class="panel code-panel">
+          npm install echarts<br data-hf-id="hf-x5px">
+          echartsUse([<br data-hf-id="hf-rsrt">
+          &#160;&#160;<b data-hf-id="hf-a3kh">LineChart</b>, BarChart,<br data-hf-id="hf-szow">
+          &#160;&#160;GridComponent,<br data-hf-id="hf-sldv">
+          &#160;&#160;TooltipComponent,<br data-hf-id="hf-qluq">
+          &#160;&#160;CanvasRenderer<br data-hf-id="hf-q7jp">
           ])
-          <div class="small-note">先收敛交互模型，再替换真实数据源。</div>
+          <div data-hf-id="hf-w7g0" class="small-note">先收敛交互模型，再替换真实数据源。</div>
         </div>
       </div>
 
-      <div id="scene-4" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">关键误解</span></div>
-          <h2>拖拽不是固定窗口平移，而是在原窗口上追加数据</h2>
+      <div data-hf-id="hf-13xl" id="scene-4" class="scene">
+        <div data-hf-id="hf-c033" class="page">
+          <div data-hf-id="hf-p6kp" class="topline"><span data-hf-id="hf-04y4" class="dot"></span><span data-hf-id="hf-qshh" class="eyebrow">关键误解</span></div>
+          <h2 data-hf-id="hf-oku5">拖拽不是固定窗口平移，而是在原窗口上追加数据</h2>
         </div>
-        <div class="window-demo">
-          <div class="axis"></div>
-          <div class="window old"></div>
-          <div class="window new"></div>
-          <span class="axis-label left">05-30 新增</span>
-          <span class="axis-label mid">05-31 原起点</span>
-          <span class="axis-label right">06-30 终点不变</span>
-          <div class="arrow" style="left: 470px; top: 42px; width: 300px; transform: rotate(180deg)"></div>
+        <div data-hf-id="hf-tbq8" class="window-demo">
+          <div data-hf-id="hf-2hmb" class="axis"></div>
+          <div data-hf-id="hf-gbpn" class="window old"></div>
+          <div data-hf-id="hf-2mae" class="window new"></div>
+          <span data-hf-id="hf-xwyj" class="axis-label left">05-30 新增</span>
+          <span data-hf-id="hf-r7hk" class="axis-label mid">05-31 原起点</span>
+          <span data-hf-id="hf-or9l" class="axis-label right">06-30 终点不变</span>
+          <div data-hf-id="hf-61oz" class="arrow" style="left: 470px; top: 42px; width: 300px; transform: rotate(180deg)"></div>
         </div>
-        <div class="annotation" style="left: 1150px; top: 630px">画布宽度不变，x 轴范围变长，视觉上被压缩</div>
+        <div data-hf-id="hf-30ju" class="annotation" style="left: 1150px; top: 630px">画布宽度不变，x 轴范围变长，视觉上被压缩</div>
       </div>
 
-      <div id="scene-5" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">交互区域被重新定义</span></div>
-          <h2>曲线下方扩展，曲线上方收缩</h2>
+      <div data-hf-id="hf-0c9s" id="scene-5" class="scene">
+        <div data-hf-id="hf-d706" class="page">
+          <div data-hf-id="hf-os9o" class="topline"><span data-hf-id="hf-0j95" class="dot"></span><span data-hf-id="hf-f39k" class="eyebrow">交互区域被重新定义</span></div>
+          <h2 data-hf-id="hf-2knx">曲线下方扩展，曲线上方收缩</h2>
         </div>
-        <div class="drag-zone"></div>
-        <div class="white-zone"></div>
-        <svg class="chart-svg" style="left: 226px; top: 180px; width: 1220px; height: 430px" viewBox="0 0 1220 430" preserveAspectRatio="none">
-          <path d="M0,305 C90,250 140,260 220,200 C320,110 370,315 500,260 C650,190 710,230 830,150 C970,68 1060,142 1220,86" fill="none" stroke="#f0445f" stroke-width="8" stroke-linecap="round" />
+        <div data-hf-id="hf-48kt" class="drag-zone"></div>
+        <div data-hf-id="hf-mn6a" class="white-zone"></div>
+        <svg data-hf-id="hf-ifhc" class="chart-svg" style="left: 226px; top: 180px; width: 1220px; height: 430px" viewBox="0 0 1220 430" preserveAspectRatio="none">
+          <path data-hf-id="hf-e6ca" d="M0,305 C90,250 140,260 220,200 C320,110 370,315 500,260 C650,190 710,230 830,150 C970,68 1060,142 1220,86" fill="none" stroke="#f0445f" stroke-width="8" stroke-linecap="round" />
         </svg>
-        <div class="annotation" style="left: 252px; top: 222px">白色区：收缩窗口</div>
-        <div class="annotation" style="left: 252px; top: 548px">填充区：扩展窗口</div>
-        <div class="arrow" style="left: 1000px; top: 536px; width: 260px"></div>
+        <div data-hf-id="hf-2gr5" class="annotation" style="left: 252px; top: 222px">白色区：收缩窗口</div>
+        <div data-hf-id="hf-kgsu" class="annotation" style="left: 252px; top: 548px">填充区：扩展窗口</div>
+        <div data-hf-id="hf-fbu2" class="arrow" style="left: 1000px; top: 536px; width: 260px"></div>
       </div>
 
-      <div id="scene-6" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">体验调优</span></div>
-          <h2>边界反馈不再移动整张图，而是显示边缘阻尼</h2>
-          <p class="lead">拖到头时，右侧出现灰色抛物线区域。用户知道已经到边界，但图表本体仍保持稳定。</p>
+      <div data-hf-id="hf-905n" id="scene-6" class="scene">
+        <div data-hf-id="hf-csp5" class="page">
+          <div data-hf-id="hf-odyn" class="topline"><span data-hf-id="hf-0xk6" class="dot"></span><span data-hf-id="hf-zowy" class="eyebrow">体验调优</span></div>
+          <h2 data-hf-id="hf-3yef">边界反馈不再移动整张图，而是显示边缘阻尼</h2>
+          <p data-hf-id="hf-p6pb" class="lead">拖到头时，右侧出现灰色抛物线区域。用户知道已经到边界，但图表本体仍保持稳定。</p>
         </div>
-        <div class="chart-shell" style="height: 520px">
-          <div class="rebound right"></div>
-          <div class="mock-chart" style="top: 74px; bottom: 72px">
-            <span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span>
-            <svg class="chart-svg" viewBox="0 0 1600 360" preserveAspectRatio="none">
-              <path class="chart-fill" d="M0,245 C150,230 180,120 260,145 C390,190 470,220 560,150 C700,50 770,190 880,135 C1000,80 1080,160 1180,88 C1300,58 1440,110 1600,60 L1600,360 L0,360 Z" />
-              <path class="chart-line" d="M0,245 C150,230 180,120 260,145 C390,190 470,220 560,150 C700,50 770,190 880,135 C1000,80 1080,160 1180,88 C1300,58 1440,110 1600,60" />
+        <div data-hf-id="hf-mtdn" class="chart-shell" style="height: 520px">
+          <div data-hf-id="hf-8r3b" class="rebound right"></div>
+          <div data-hf-id="hf-43n6" class="mock-chart" style="top: 74px; bottom: 72px">
+            <span data-hf-id="hf-jz8n" class="grid-line"></span><span data-hf-id="hf-kdjo" class="grid-line"></span><span data-hf-id="hf-j6ml" class="grid-line"></span><span data-hf-id="hf-jkxm" class="grid-line"></span>
+            <svg data-hf-id="hf-6ofx" class="chart-svg" viewBox="0 0 1600 360" preserveAspectRatio="none">
+              <path data-hf-id="hf-16yj" class="chart-fill" d="M0,245 C150,230 180,120 260,145 C390,190 470,220 560,150 C700,50 770,190 880,135 C1000,80 1080,160 1180,88 C1300,58 1440,110 1600,60 L1600,360 L0,360 Z" />
+              <path data-hf-id="hf-a9ov" class="chart-line" d="M0,245 C150,230 180,120 260,145 C390,190 470,220 560,150 C700,50 770,190 880,135 C1000,80 1080,160 1180,88 C1300,58 1440,110 1600,60" />
             </svg>
           </div>
         </div>
       </div>
 
-      <div id="scene-7" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">问题定位</span></div>
-          <h2>拖拽抖动来自重新分桶和 smooth 曲线</h2>
+      <div data-hf-id="hf-521m" id="scene-7" class="scene">
+        <div data-hf-id="hf-dzm8" class="page">
+          <div data-hf-id="hf-nznm" class="topline"><span data-hf-id="hf-1bv7" class="dot"></span><span data-hf-id="hf-kuux" class="eyebrow">问题定位</span></div>
+          <h2 data-hf-id="hf-lsm3">拖拽抖动来自重新分桶和 smooth 曲线</h2>
         </div>
-        <div class="jitter-row">
-          <div class="jitter-card"><img src="./assets/drag-jitter-1.png" alt="拖拽抖动截图一" /></div>
-          <div class="jitter-card"><img src="./assets/drag-jitter-2.png" alt="拖拽抖动截图二" /></div>
+        <div data-hf-id="hf-0w8l" class="jitter-row">
+          <div data-hf-id="hf-bky1" class="jitter-card"><img data-hf-id="hf-gntm" src="./assets/drag-jitter-1.png" alt="拖拽抖动截图一"></div>
+          <div data-hf-id="hf-mqpp" class="jitter-card"><img data-hf-id="hf-9kud" src="./assets/drag-jitter-2.png" alt="拖拽抖动截图二"></div>
         </div>
-        <div class="annotation" style="left: 542px; top: 804px">修复：拖拽中使用 raw samples，并关闭 smooth</div>
+        <div data-hf-id="hf-i3cu" class="annotation" style="left: 542px; top: 804px">修复：拖拽中使用 raw samples，并关闭 smooth</div>
       </div>
 
-      <div id="scene-8" class="scene">
-        <div class="page">
-          <div class="topline"><span class="dot"></span><span class="eyebrow">最终交付</span></div>
-          <h2>把一次对话式制作沉淀成可复现路径</h2>
+      <div data-hf-id="hf-dpxh" id="scene-8" class="scene">
+        <div data-hf-id="hf-dlb7" class="page">
+          <div data-hf-id="hf-nlcl" class="topline"><span data-hf-id="hf-1q68" class="dot"></span><span data-hf-id="hf-heeq" class="eyebrow">最终交付</span></div>
+          <h2 data-hf-id="hf-22yz">把一次对话式制作沉淀成可复现路径</h2>
         </div>
-        <div class="checklist">
-          <div class="check"><em>1</em><strong>页面 Demo</strong><span>`/topics/echarts` 展示双 grid 行情图、tooltip、范围切换和拖拽。</span></div>
-          <div class="check"><em>2</em><strong>模型测试</strong><span>覆盖窗口扩展、收缩、命中检测、边界回弹和格式化。</span></div>
-          <div class="check"><em>3</em><strong>组件测试</strong><span>mock ECharts，验证 option、事件和视觉配置。</span></div>
-          <div class="check"><em>4</em><strong>中文指引</strong><span>记录关键判断节点，让读者可以按阶段复刻。</span></div>
+        <div data-hf-id="hf-g1yo" class="checklist">
+          <div data-hf-id="hf-zsdk" class="check"><em data-hf-id="hf-k3o2">1</em><strong data-hf-id="hf-333w">页面 Demo</strong><span data-hf-id="hf-065t">`/topics/echarts` 展示双 grid 行情图、tooltip、范围切换和拖拽。</span></div>
+          <div data-hf-id="hf-melc" class="check"><em data-hf-id="hf-khz3">2</em><strong data-hf-id="hf-nk5a">模型测试</strong><span data-hf-id="hf-ldc3">覆盖窗口扩展、收缩、命中检测、边界回弹和格式化。</span></div>
+          <div data-hf-id="hf-l7o9" class="check"><em data-hf-id="hf-kwa4">3</em><strong data-hf-id="hf-33zc">组件测试</strong><span data-hf-id="hf-05tt">mock ECharts，验证 option、事件和视觉配置。</span></div>
+          <div data-hf-id="hf-llza" class="check"><em data-hf-id="hf-lal5">4</em><strong data-hf-id="hf-usvm">中文指引</strong><span data-hf-id="hf-abh2">记录关键判断节点，让读者可以按阶段复刻。</span></div>
         </div>
       </div>
 
-      <audio id="narration" data-start="0" data-duration="auto" data-track-index="20" src="./narration.wav" data-volume="1"></audio>
+      <audio data-hf-id="hf-elco" id="narration" data-start="0" data-duration="auto" data-track-index="20" src="./renders/narration-yunxi-fit.m4a" data-volume="1"></audio>
 
-      <div class="caption" data-layout-allow-occlusion>
-        <div id="cg-0" class="caption-group">这次分享，用一个 ECharts 行情图 Demo，复盘 vibe-coding 怎么处理复杂交互。</div>
-        <div id="cg-1" class="caption-group">我们不是只做一张能看的图，而是把需求、误解、修正、测试和复现指引串起来。</div>
-        <div id="cg-2" class="caption-group">起点是一张富途风格行情页：时间在 x 轴，价格在 y 轴，hover 要看到交易信息。</div>
-        <div id="cg-3" class="caption-group">技术选型很克制：React 加 Vite，图表用 ECharts，数据先用确定性模拟。</div>
-        <div id="cg-4" class="caption-group">第一版完成了折线、成交量、范围切换和 tooltip。但真正的难点，是拖拽窗口。</div>
-        <div id="cg-5" class="caption-group">最开始我把拖拽做成固定窗口平移。用户指出，这不是要滑走终点。</div>
-        <div id="cg-6" class="caption-group">正确模型是：图表宽度不变，x 轴范围变长，视觉上发生压缩。</div>
-        <div id="cg-7" class="caption-group">曲线下方的面积区负责扩展窗口，曲线上方白色区域负责收回窗口。</div>
-        <div id="cg-8" class="caption-group">边界反馈也调整过：整张图表不动，只在边缘显示阻尼提示。</div>
-        <div id="cg-9" class="caption-group">拖拽抖动来自重新分桶和 smooth 曲线，修复方式是直接使用 raw samples。</div>
-        <div id="cg-10" class="caption-group">最后整理视觉：y 轴标注、整体留白，以及红色到白色的面积渐变。</div>
-        <div id="cg-11" class="caption-group">最终产物包括页面、测试和中文复现指引，可以继续扩展到下一个 topic。</div>
+      <div data-hf-id="hf-0xjm" class="caption" data-layout-allow-occlusion="">
+        <div data-hf-id="hf-2kol" id="cg-0" class="caption-group">这次分享，用一个 ECharts 行情图 Demo，复盘 vibe-coding 怎么处理复杂交互。</div>
+        <div data-hf-id="hf-7sz9" id="cg-1" class="caption-group">我们不是只做一张能看的图，而是把需求、误解、修正、测试和复现指引串起来。</div>
+        <div data-hf-id="hf-9e83" id="cg-2" class="caption-group">起点是一张富途风格行情页：时间在 x 轴，价格在 y 轴，hover 要看到交易信息。</div>
+        <div data-hf-id="hf-ux52" id="cg-3" class="caption-group">技术选型很克制：React 加 Vite，图表用 ECharts，数据先用确定性模拟。</div>
+        <div data-hf-id="hf-13sd" id="cg-4" class="caption-group">第一版完成了折线、成交量、范围切换和 tooltip。但真正的难点，是拖拽窗口。</div>
+        <div data-hf-id="hf-fkid" id="cg-5" class="caption-group">最开始我把拖拽做成固定窗口平移。用户指出，这不是要滑走终点。</div>
+        <div data-hf-id="hf-m1hw" id="cg-6" class="caption-group">正确模型是：图表宽度不变，x 轴范围变长，视觉上发生压缩。</div>
+        <div data-hf-id="hf-c4wi" id="cg-7" class="caption-group">曲线下方的面积区负责扩展窗口，曲线上方白色区域负责收回窗口。</div>
+        <div data-hf-id="hf-fht5" id="cg-8" class="caption-group">边界反馈也调整过：整张图表不动，只在边缘显示阻尼提示。</div>
+        <div data-hf-id="hf-azfn" id="cg-9" class="caption-group">拖拽抖动来自重新分桶和 smooth 曲线，修复方式是直接使用 raw samples。</div>
+        <div data-hf-id="hf-d7aa" id="cg-10" class="caption-group">最后整理视觉：y 轴标注、整体留白，以及红色到白色的面积渐变。</div>
+        <div data-hf-id="hf-wtfl" id="cg-11" class="caption-group">最终产物包括页面、测试和中文复现指引，可以继续扩展到下一个 topic。</div>
       </div>
-      <div id="wipe-a" class="wipe"></div>
-      <div id="wipe-b" class="wipe"></div>
+      <div data-hf-id="hf-x7v0" id="wipe-a" class="wipe"></div>
+      <div data-hf-id="hf-5vqv" id="wipe-b" class="wipe"></div>
     </div>
 
     <script>

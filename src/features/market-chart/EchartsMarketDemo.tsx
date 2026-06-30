@@ -31,6 +31,8 @@ import './EchartsMarketDemo.css'
 const priceGrid = { left: 64, right: 56, top: 46, height: 252 }
 const volumeGrid = { left: 64, right: 56, top: 346, height: 68 }
 const minDragPixels = 2
+const walkthroughVideoUrl =
+  '/videos/echarts-vibecoding-guide/echarts-vibecoding-guide-voiceover.mp4'
 type DragMode = 'expand' | 'shrink'
 
 echartsUse([
@@ -171,22 +173,27 @@ export function EchartsMarketDemo() {
             <p className="market-crumb">ECharts Demo</p>
             <h2>纳斯达克综合指数 (.IXIC) 今日走势</h2>
           </div>
-          {rebackView ? (
-            <button
-              className="reback-button"
-              type="button"
-              aria-label="恢复拖拽前视图"
-              onClick={() => {
-                setView(rebackView)
-                setRebackView(null)
-                setEdgeRebound(null)
-                setIsAreaDragging(false)
-                dragBaseViewRef.current = null
-              }}
-            >
-              ↺
-            </button>
-          ) : null}
+          <div className="market-card-actions">
+            <a href={walkthroughVideoUrl} target="_blank" rel="noreferrer">
+              制作复盘视频
+            </a>
+            {rebackView ? (
+              <button
+                className="reback-button"
+                type="button"
+                aria-label="恢复拖拽前视图"
+                onClick={() => {
+                  setView(rebackView)
+                  setRebackView(null)
+                  setEdgeRebound(null)
+                  setIsAreaDragging(false)
+                  dragBaseViewRef.current = null
+                }}
+              >
+                ↺
+              </button>
+            ) : null}
+          </div>
         </header>
 
         <div className="range-tabs" aria-label="行情范围">
