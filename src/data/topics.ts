@@ -17,17 +17,17 @@ export const topics: Topic[] = [
     tool: 'Apache ECharts',
     category: 'charts',
     summary:
-      'Use ECharts as the first data-visualization track because it handles rich chart types, animation, emphasis states, and custom interaction without inventing chart primitives from scratch.',
+      'Use ECharts to build a Futu-style market chart with time-range tabs, hover trading details, trend colors, volume bars, drag panning, and reback.',
     demoGoal:
-      'Build an interactive market or KPI slide where the chart changes state across clicks: full view, focused segment, comparison mode, and reset.',
+      'Build an interactive Nasdaq-style price line chart where users can switch time ranges, inspect trading fields on hover, and drag non-intraday windows.',
     plannedInteractions: [
-      'Load structured sample data from a local module.',
-      'Advance chart emphasis states with a slide-style click control.',
-      'Expose theme and chart-type controls for later prompt-driven tweaks.',
+      'Switch between 分时, 5日, 日K, 周K, 月K, 季K, and 年K ranges.',
+      'Hover to inspect time, price, change, change percent, volume, and turnover.',
+      'Drag non-intraday windows horizontally and restore the previous view with reback.',
     ],
     acceptanceCriteria: [
       'The demo renders a real ECharts instance inside the React page.',
-      'At least three click states change chart emphasis or opacity.',
+      'Range buttons update the visible data window and clear drag offsets.',
       'The chart remains responsive on desktop and mobile widths.',
     ],
     references: ['https://echarts.apache.org/examples/en/index.html'],

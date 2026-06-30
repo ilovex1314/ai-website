@@ -1,4 +1,5 @@
 import { getTopicBySlug, topics } from './data/topics'
+import { EchartsMarketDemo } from './features/market-chart/EchartsMarketDemo'
 import './App.css'
 
 function getCurrentTopicSlug(pathname: string) {
@@ -38,6 +39,10 @@ function HomePage() {
 }
 
 function TopicPage({ slug }: { slug: string }) {
+  if (slug === 'echarts') {
+    return <EchartsMarketDemo />
+  }
+
   const topic = getTopicBySlug(slug)
 
   if (!topic) {
