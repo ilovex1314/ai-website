@@ -307,6 +307,7 @@ function MarketChart({
 
       dragStartXRef.current = dragPoint.clientX
       dragModeRef.current = mode
+      preventTouchScroll(event)
       onAreaDragStartRef.current(mode)
     }
 
@@ -321,6 +322,7 @@ function MarketChart({
         return
       }
 
+      preventTouchScroll(event)
       onAreaDragMoveRef.current(
         dragPoint.clientX - dragStartXRef.current,
         getPricePlotWidth(chart),
@@ -342,12 +344,20 @@ function MarketChart({
     zrender?.on('mousemove', handleDragMove)
     zrender?.on('mouseup', handleDragEnd)
     zrender?.on('globalout', handleDragEnd)
+    zrender?.on('touchstart', handleDragStart)
+    zrender?.on('touchmove', handleDragMove)
+    zrender?.on('touchend', handleDragEnd)
+    zrender?.on('touchcancel', handleDragEnd)
 
     return () => {
       zrender?.off('mousedown', handleDragStart)
       zrender?.off('mousemove', handleDragMove)
       zrender?.off('mouseup', handleDragEnd)
       zrender?.off('globalout', handleDragEnd)
+      zrender?.off('touchstart', handleDragStart)
+      zrender?.off('touchmove', handleDragMove)
+      zrender?.off('touchend', handleDragEnd)
+      zrender?.off('touchcancel', handleDragEnd)
       resizeObserver?.disconnect()
       chart.dispose()
       chartRef.current = null
@@ -386,6 +396,9 @@ type ZRenderPointerEvent = {
   offsetY?: number
   event?: {
     clientX?: number
+    touches?: ArrayLike<{ clientX: number }>
+    changedTouches?: ArrayLike<{ clientX: number }>
+    preventDefault?: () => void
   }
 }
 
@@ -400,10 +413,12 @@ type AreaDragChart = EChartsType & {
 }
 
 function toDragPoint(event: ZRenderPointerEvent) {
+  const clientX = getClientX(event)
+
   if (
     event.offsetX === undefined ||
     event.offsetY === undefined ||
-    event.event?.clientX === undefined
+    clientX === null
   ) {
     return null
   }
@@ -411,8 +426,27 @@ function toDragPoint(event: ZRenderPointerEvent) {
   return {
     x: event.offsetX,
     y: event.offsetY,
-    clientX: event.event.clientX,
+    clientX,
   }
+}
+
+function getClientX(event: ZRenderPointerEvent) {
+  const sourceEvent = event.event
+
+  if (!sourceEvent) {
+    return null
+  }
+
+  if (sourceEvent.clientX !== undefined) {
+    return sourceEvent.clientX
+  }
+
+  const activeTouch = sourceEvent.touches?.[0] ?? sourceEvent.changedTouches?.[0]
+  return activeTouch?.clientX ?? null
+}
+
+function preventTouchScroll(event: ZRenderPointerEvent) {
+  event.event?.preventDefault?.()
 }
 
 function getDragModeAtPoint(

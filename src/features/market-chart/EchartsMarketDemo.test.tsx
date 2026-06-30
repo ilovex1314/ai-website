@@ -194,6 +194,52 @@ describe('EchartsMarketDemo', () => {
     expect(screen.getByTestId('window-range')).toHaveTextContent('05/31 21:30')
     expect(screen.queryByRole('button', { name: /恢复拖拽前视图/i })).not.toBeInTheDocument()
   })
+
+  it('supports mobile touch drags in the chart area and prevents page scrolling during the gesture', () => {
+    window.history.pushState({}, '', '/topics/echarts')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '日K' }))
+    expect(screen.getByTestId('window-range')).toHaveTextContent('05/31')
+
+    const preventStartDefault = vi.fn()
+    const preventMoveDefault = vi.fn()
+
+    act(() => {
+      echartsMock.handlers.get('touchstart')?.({
+        offsetX: 780,
+        offsetY: 280,
+        event: {
+          touches: [{ clientX: 320 }],
+          preventDefault: preventStartDefault,
+        },
+      })
+      echartsMock.handlers.get('touchmove')?.({
+        offsetX: 880,
+        offsetY: 280,
+        event: {
+          touches: [{ clientX: 420 }],
+          preventDefault: preventMoveDefault,
+        },
+      })
+    })
+
+    expect(screen.getByTestId('window-range')).not.toHaveTextContent('05/31')
+    expect(screen.getByRole('button', { name: /恢复拖拽前视图/i })).toBeInTheDocument()
+    expect(preventStartDefault).toHaveBeenCalled()
+    expect(preventMoveDefault).toHaveBeenCalled()
+
+    act(() => {
+      echartsMock.handlers.get('touchend')?.({
+        offsetX: 880,
+        offsetY: 280,
+        event: {
+          changedTouches: [{ clientX: 420 }],
+        },
+      })
+    })
+  })
 })
 
 function dragInPriceArea(startClientX: number, endClientX: number) {

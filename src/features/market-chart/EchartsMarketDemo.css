@@ -177,6 +177,8 @@
 .market-chart {
   width: 100%;
   height: 460px;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .edge-rebound {
