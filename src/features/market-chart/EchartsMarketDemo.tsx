@@ -27,7 +27,7 @@ import './EchartsMarketDemo.css'
 
 const priceGrid = { left: 42, right: 36, top: 18, height: 300 }
 const volumeGrid = { left: 42, right: 36, top: 342, height: 82 }
-const dragPixelsPerStep = 80
+const minDragPixels = 2
 
 echartsUse([
   LineChart,
@@ -44,9 +44,10 @@ export function EchartsMarketDemo() {
   const [rangeKey, setRangeKey] = useState<RangeKey>('intraday')
   const [view, setView] = useState(() => buildVisibleSeries(data, 'intraday'))
   const [rebackView, setRebackView] = useState<VisibleSeries | null>(null)
-  const [rebound, setRebound] = useState(false)
+  const [edgeRebound, setEdgeRebound] = useState<'left' | 'right' | null>(null)
   const [isAreaDragging, setIsAreaDragging] = useState(false)
   const dragBaseViewRef = useRef<VisibleSeries | null>(null)
+  const reboundTimerRef = useRef<number | null>(null)
 
   const trend = getTrend(view.visiblePoints)
   const latestPoint = view.visiblePoints.at(-1)!
@@ -54,18 +55,26 @@ export function EchartsMarketDemo() {
   const rangeChange = latestPoint.price - firstPoint.price
   const rangeChangePercent = firstPoint.price === 0 ? 0 : (rangeChange / firstPoint.price) * 100
 
+  useEffect(() => {
+    return () => {
+      if (reboundTimerRef.current !== null) {
+        window.clearTimeout(reboundTimerRef.current)
+      }
+    }
+  }, [])
+
   function selectRange(nextRange: RangeKey) {
     setRangeKey(nextRange)
     setView(buildVisibleSeries(data, nextRange))
     setRebackView(null)
-    setRebound(false)
+    setEdgeRebound(null)
     setIsAreaDragging(false)
     dragBaseViewRef.current = null
   }
 
   function startAreaDrag() {
     if (!view.range.draggable) {
-      flashRebound()
+      flashRebound('right')
       return
     }
 
@@ -73,21 +82,21 @@ export function EchartsMarketDemo() {
     setIsAreaDragging(true)
   }
 
-  function previewAreaDrag(delta: number) {
+  function previewAreaDrag(delta: number, plotWidth: number) {
     const baseView = dragBaseViewRef.current
-    const stepCount = Math.floor(Math.abs(delta) / dragPixelsPerStep)
+    const pointCount = getDragPointCount(delta, baseView, plotWidth)
 
-    if (!baseView || stepCount === 0) {
+    if (!baseView || pointCount === 0) {
       return
     }
 
     if (!baseView.range.draggable) {
-      flashRebound()
+      flashRebound(delta < 0 ? 'right' : 'left')
       return
     }
 
     const direction = delta < 0 ? 'left' : 'right'
-    const next = expandWindow(data, baseView, direction, stepCount)
+    const next = expandWindow(data, baseView, direction, pointCount)
 
     if (!rebackView && !next.rebounded) {
       setRebackView(baseView)
@@ -96,7 +105,7 @@ export function EchartsMarketDemo() {
     setView(next.view)
 
     if (next.rebounded) {
-      flashRebound()
+      flashRebound(direction === 'left' ? 'right' : 'left')
     }
   }
 
@@ -105,9 +114,17 @@ export function EchartsMarketDemo() {
     setIsAreaDragging(false)
   }
 
-  function flashRebound() {
-    setRebound(true)
-    window.setTimeout(() => setRebound(false), 260)
+  function flashRebound(edge: 'left' | 'right') {
+    setEdgeRebound(edge)
+
+    if (reboundTimerRef.current !== null) {
+      window.clearTimeout(reboundTimerRef.current)
+    }
+
+    reboundTimerRef.current = window.setTimeout(() => {
+      setEdgeRebound(null)
+      reboundTimerRef.current = null
+    }, 320)
   }
 
   return (
@@ -155,7 +172,7 @@ export function EchartsMarketDemo() {
               onClick={() => {
                 setView(rebackView)
                 setRebackView(null)
-                setRebound(false)
+                setEdgeRebound(null)
                 setIsAreaDragging(false)
                 dragBaseViewRef.current = null
               }}
@@ -190,7 +207,7 @@ export function EchartsMarketDemo() {
           当前窗口 {formatWindowRange(view)}
         </p>
 
-        <div className={`chart-shell ${rebound ? 'is-rebounding' : ''}`}>
+        <div className="chart-shell" data-testid="chart-shell">
           <MarketChart
             view={view}
             trendColor={trend.color}
@@ -200,6 +217,12 @@ export function EchartsMarketDemo() {
             onAreaDragMove={previewAreaDrag}
             onAreaDragEnd={finishAreaDrag}
           />
+          {edgeRebound ? (
+            <div
+              className={`edge-rebound edge-rebound-${edgeRebound}`}
+              data-testid={`edge-rebound-${edgeRebound}`}
+            />
+          ) : null}
         </div>
       </section>
     </main>
@@ -220,7 +243,7 @@ function MarketChart({
   trendSoftColor: string
   isDragging: boolean
   onAreaDragStart: () => void
-  onAreaDragMove: (delta: number) => void
+  onAreaDragMove: (delta: number, plotWidth: number) => void
   onAreaDragEnd: () => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -280,7 +303,7 @@ function MarketChart({
         return
       }
 
-      onAreaDragMoveRef.current(dragPoint.clientX - dragStartXRef.current)
+      onAreaDragMoveRef.current(dragPoint.clientX - dragStartXRef.current, getPricePlotWidth(chart))
     }
 
     function handleDragEnd() {
@@ -316,6 +339,15 @@ function MarketChart({
   }, [view, trendColor, trendSoftColor, isDragging])
 
   return <div className="market-chart" data-testid="market-chart" ref={containerRef} />
+}
+
+function getDragPointCount(delta: number, baseView: VisibleSeries | null, plotWidth: number) {
+  if (!baseView || Math.abs(delta) < minDragPixels || plotWidth <= 0) {
+    return 0
+  }
+
+  const pointsPerPixel = baseView.rawPoints.length / plotWidth
+  return Math.max(1, Math.round(Math.abs(delta) * pointsPerPixel))
 }
 
 type ZRenderPointerEvent = {
@@ -372,6 +404,11 @@ function isPointInsideCurrentPriceArea(
     minPrice: Math.min(...prices),
     maxPrice: Math.max(...prices),
   })
+}
+
+function getPricePlotWidth(chart: AreaDragChart) {
+  const chartWidth = chart.getWidth?.() ?? 0
+  return Math.max(1, chartWidth - priceGrid.left - priceGrid.right)
 }
 
 function buildChartOption(

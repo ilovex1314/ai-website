@@ -97,11 +97,39 @@ describe('EchartsMarketDemo', () => {
     startDragInPriceArea(320)
     moveDragInPriceArea(420)
 
-    expect(screen.getByTestId('window-range')).toHaveTextContent('05/30')
+    expect(screen.getByTestId('window-range')).not.toHaveTextContent('05/31')
     expect(screen.getByTestId('window-range')).toHaveTextContent('06/30')
     expect(echartsMock.chart.setOption.mock.calls.some(([option]) => option.animation === false)).toBe(true)
 
     endDragInPriceArea(420)
+  })
+
+  it('reacts to short five-day drags instead of waiting for a large fixed step', () => {
+    window.history.pushState({}, '', '/topics/echarts')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '5日' }))
+
+    startDragInPriceArea(320)
+    moveDragInPriceArea(336)
+
+    expect(echartsMock.chart.setOption.mock.calls.length).toBeGreaterThan(2)
+    expect(echartsMock.chart.setOption.mock.calls.some(([option]) => option.animation === false)).toBe(true)
+    expect(screen.getByRole('button', { name: /恢复拖拽前视图/i })).toBeInTheDocument()
+  })
+
+  it('shows an edge rebound overlay without moving the whole chart at the newest boundary', () => {
+    window.history.pushState({}, '', '/topics/echarts')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '5日' }))
+    startDragInPriceArea(420)
+    moveDragInPriceArea(320)
+
+    expect(screen.getByTestId('edge-rebound-right')).toBeInTheDocument()
+    expect(screen.getByTestId('chart-shell')).not.toHaveClass('is-rebounding')
   })
 
   it('ignores drags above the filled price area', () => {

@@ -60,7 +60,7 @@ const ranges: Record<RangeKey, MarketRange> = {
     key: 'fiveDay',
     label: '5日',
     days: 5,
-    targetPoints: 260,
+    targetPoints: 390,
     draggable: true,
     panStepDays: 1,
   },
@@ -214,13 +214,13 @@ export function expandWindow(
   data: MarketPoint[],
   current: VisibleSeries,
   direction: PanDirection,
-  stepCount = 1,
+  pointCount = 1,
 ) {
   if (!current.range.draggable) {
     return { view: current, rebounded: true }
   }
 
-  const step = Math.max(1, Math.round(current.range.panStepDays * tradingDayMinutes * stepCount))
+  const step = Math.max(1, Math.round(pointCount))
   const nextStart = direction === 'right' ? current.windowStart - step : current.windowStart
   const nextEnd = direction === 'left' ? current.windowEnd + step : current.windowEnd
   const clampedStart = clamp(nextStart, 0, current.windowEnd - 1)

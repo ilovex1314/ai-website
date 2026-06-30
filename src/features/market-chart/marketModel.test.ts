@@ -87,12 +87,22 @@ describe('marketModel', () => {
   it('expands the daily window back by one trading day while keeping the latest edge', () => {
     const data = createMarketData()
     const current = buildVisibleSeries(data, 'day')
-    const older = expandWindow(data, current, 'right')
+    const older = expandWindow(data, current, 'right', 78)
 
     expect(formatWindowRange(current)).toBe('05/31 - 06/30')
     expect(formatWindowRange(older.view)).toBe('05/30 - 06/30')
     expect(older.view.rawPoints.length).toBeGreaterThan(current.rawPoints.length)
     expect(older.view.visiblePoints.length).toBeLessThanOrEqual(getRange('day').targetPoints)
+  })
+
+  it('expands by raw point count so short drags can still reveal more data', () => {
+    const data = createMarketData()
+    const current = buildVisibleSeries(data, 'fiveDay')
+    const older = expandWindow(data, current, 'right', 6)
+
+    expect(older.view.windowStart).toBe(current.windowStart - 6)
+    expect(older.view.windowEnd).toBe(current.windowEnd)
+    expect(older.view.rawPoints.length).toBe(current.rawPoints.length + 6)
   })
 
   it('detects drag starts inside the filled area below the curved price line', () => {
