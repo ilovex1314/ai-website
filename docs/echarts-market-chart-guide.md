@@ -35,7 +35,7 @@ src/features/market-chart/marketModel.test.ts
 
 需求开始时，参考的是富途风格指数详情页：上方是范围切换按钮，中间是红色走势折线和渐变填充，下方是成交量柱图，hover 时出现十字线和 tooltip。
 
-![富途风格行情图参考](assets/echarts-area-drag-region.png)
+![富途风格行情图参考](./assets/echarts-area-drag-region.png)
 
 这里有一个关键点：用户口中的“K线图”在本 demo 中落地为“行情折线/分时走势能力验证”，而不是传统 OHLC 蜡烛图。后续所有交互都围绕折线、面积填充、x 轴时间窗口展开。
 
@@ -205,7 +205,7 @@ function selectRange(nextRange: RangeKey) {
 
 用户明确指出可拖区域是“曲线下方到 x 轴之间的填充面积”，不是价格图和成交量图之间的空白条。
 
-![填充区域拖拽示意](assets/echarts-area-drag-region.png)
+![填充区域拖拽示意](./assets/echarts-area-drag-region.png)
 
 最终规则：
 
@@ -294,9 +294,9 @@ CSS 核心：
 
 拖拽过程中曾出现曲线尖峰和断崖，截图如下：
 
-![拖拽抖动问题 1](assets/echarts-drag-jitter-1.png)
+![拖拽抖动问题 1](./assets/echarts-drag-jitter-1.png)
 
-![拖拽抖动问题 2](assets/echarts-drag-jitter-2.png)
+![拖拽抖动问题 2](./assets/echarts-drag-jitter-2.png)
 
 关键判断：
 
