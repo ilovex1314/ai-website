@@ -28,8 +28,8 @@ import {
 } from './marketModel'
 import './EchartsMarketDemo.css'
 
-const priceGrid = { left: 42, right: 36, top: 18, height: 300 }
-const volumeGrid = { left: 42, right: 36, top: 342, height: 82 }
+const priceGrid = { left: 64, right: 56, top: 46, height: 252 }
+const volumeGrid = { left: 64, right: 56, top: 346, height: 68 }
 const minDragPixels = 2
 type DragMode = 'expand' | 'shrink'
 
@@ -465,6 +465,20 @@ function buildChartOption(
   return {
     animation: !isDragging,
     animationDurationUpdate: isDragging ? 0 : 260,
+    title: [
+      {
+        text: '价格',
+        left: priceGrid.left,
+        top: 16,
+        textStyle: { color: '#68717d', fontSize: 13, fontWeight: 700 },
+      },
+      {
+        text: '成交量',
+        left: volumeGrid.left,
+        top: volumeGrid.top - 24,
+        textStyle: { color: '#68717d', fontSize: 13, fontWeight: 700 },
+      },
+    ],
     grid: [
       priceGrid,
       volumeGrid,
@@ -513,7 +527,7 @@ function buildChartOption(
         showSymbol: false,
         data: lineData,
         lineStyle: { color: trendColor, width: 3 },
-        areaStyle: { color: trendSoftColor },
+        areaStyle: { color: buildAreaGradient(trendColor, trendSoftColor) },
       },
       {
         name: '成交量',
@@ -537,6 +551,30 @@ function getChartPoints(view: VisibleSeries) {
   }
 
   return filterVisibleRawPoints(view.rawPoints, first.timestamp, last.timestamp)
+}
+
+function buildAreaGradient(trendColor: string, trendSoftColor: string) {
+  return {
+    type: 'linear',
+    x: 0,
+    y: 0,
+    x2: 0,
+    y2: 1,
+    colorStops: [
+      { offset: 0, color: withAlpha(trendColor, 0.28) },
+      { offset: 0.52, color: trendSoftColor },
+      { offset: 1, color: 'rgba(255, 255, 255, 0)' },
+    ],
+  }
+}
+
+function withAlpha(hexColor: string, alpha: number) {
+  const normalized = hexColor.replace('#', '')
+  const red = Number.parseInt(normalized.slice(0, 2), 16)
+  const green = Number.parseInt(normalized.slice(2, 4), 16)
+  const blue = Number.parseInt(normalized.slice(4, 6), 16)
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
 function maxPrice(points: MarketPoint[]) {

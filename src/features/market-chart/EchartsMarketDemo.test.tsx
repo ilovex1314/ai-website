@@ -150,6 +150,26 @@ describe('EchartsMarketDemo', () => {
     expect(lineData.length).toBeGreaterThan(2000)
   })
 
+  it('adds chart labels, balanced grid padding, and a red-to-white area gradient', () => {
+    window.history.pushState({}, '', '/topics/echarts')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '日K' }))
+
+    const latestOption = echartsMock.chart.setOption.mock.calls.at(-1)?.[0]
+
+    expect(latestOption.title.map((title: { text: string }) => title.text)).toEqual(['价格', '成交量'])
+    expect(latestOption.grid[0]).toMatchObject({ left: 64, right: 56, top: 46 })
+    expect(latestOption.grid[1]).toMatchObject({ left: 64, right: 56 })
+    expect(latestOption.series[0].areaStyle.color).toMatchObject({
+      type: 'linear',
+      y: 0,
+      y2: 1,
+    })
+    expect(latestOption.series[0].areaStyle.color.colorStops.at(-1).color).toBe('rgba(255, 255, 255, 0)')
+  })
+
   it('shows an edge rebound overlay without moving the whole chart at the newest boundary', () => {
     window.history.pushState({}, '', '/topics/echarts')
 
@@ -222,7 +242,7 @@ function startDragInWhitespace(startClientX: number) {
   act(() => {
     echartsMock.handlers.get('mousedown')?.({
       offsetX: 780,
-      offsetY: 40,
+      offsetY: 70,
       event: { clientX: startClientX },
     })
   })
@@ -232,7 +252,7 @@ function moveDragInWhitespace(clientX: number) {
   act(() => {
     echartsMock.handlers.get('mousemove')?.({
       offsetX: 780 + clientX - dragStartClientX,
-      offsetY: 40,
+      offsetY: 70,
       event: { clientX },
     })
   })
