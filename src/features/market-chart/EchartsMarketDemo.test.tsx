@@ -137,6 +137,19 @@ describe('EchartsMarketDemo', () => {
     expect(screen.getByRole('button', { name: /恢复拖拽前视图/i })).toBeInTheDocument()
   })
 
+  it('renders the chart from raw samples so dragging does not rebucket line points', () => {
+    window.history.pushState({}, '', '/topics/echarts')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '日K' }))
+
+    const latestOption = echartsMock.chart.setOption.mock.calls.at(-1)?.[0]
+    const lineData = latestOption.series[0].data
+
+    expect(lineData.length).toBeGreaterThan(2000)
+  })
+
   it('shows an edge rebound overlay without moving the whole chart at the newest boundary', () => {
     window.history.pushState({}, '', '/topics/echarts')
 

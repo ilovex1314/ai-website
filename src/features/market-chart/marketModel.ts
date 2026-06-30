@@ -187,6 +187,16 @@ export function downsampleAveragePoints(points: MarketPoint[], targetPoints: num
   return result
 }
 
+export function filterVisibleRawPoints(
+  points: MarketPoint[],
+  startTimestamp: number,
+  endTimestamp: number,
+) {
+  return points.filter(
+    (point) => point.timestamp >= startTimestamp && point.timestamp <= endTimestamp,
+  )
+}
+
 export function buildVisibleSeries(
   data: MarketPoint[],
   rangeKey: RangeKey,

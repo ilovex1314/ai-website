@@ -4,6 +4,7 @@ import {
   createMarketData,
   downsampleAveragePoints,
   expandWindow,
+  filterVisibleRawPoints,
   formatWindowRange,
   formatTooltipRows,
   getRange,
@@ -105,6 +106,17 @@ describe('marketModel', () => {
     expect(older.view.windowStart).toBe(current.windowStart - 6)
     expect(older.view.windowEnd).toBe(current.windowEnd)
     expect(older.view.rawPoints.length).toBe(current.rawPoints.length + 6)
+  })
+
+  it('filters raw points by the active x window without rebucketing existing samples', () => {
+    const points = Array.from({ length: 8 }, (_, index) => ({
+      timestamp: index,
+      price: index + 1,
+      volume: 1,
+      turnover: 1,
+    }))
+
+    expect(filterVisibleRawPoints(points, 2, 5).map((point) => point.timestamp)).toEqual([2, 3, 4, 5])
   })
 
   it('detects drag starts inside the filled area below the curved price line', () => {

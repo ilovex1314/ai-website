@@ -13,6 +13,7 @@ import {
   buildVisibleSeries,
   createMarketData,
   expandWindow,
+  filterVisibleRawPoints,
   formatWindowRange,
   formatTooltipRows,
   formatTime,
@@ -450,7 +451,8 @@ function buildChartOption(
   trendSoftColor: string,
   isDragging: boolean,
 ) {
-  const lineData = view.visiblePoints.map((point) => [
+  const linePoints = getChartPoints(view)
+  const lineData = linePoints.map((point) => [
     point.timestamp,
     point.price,
     point.volume,
@@ -458,7 +460,7 @@ function buildChartOption(
     point.change ?? 0,
     point.changePercent ?? 0,
   ])
-  const volumeData = view.visiblePoints.map((point) => [point.timestamp, point.volume])
+  const volumeData = linePoints.map((point) => [point.timestamp, point.volume])
 
   return {
     animation: !isDragging,
@@ -506,8 +508,9 @@ function buildChartOption(
         type: 'line',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        smooth: true,
+        smooth: false,
         symbol: 'none',
+        showSymbol: false,
         data: lineData,
         lineStyle: { color: trendColor, width: 3 },
         areaStyle: { color: trendSoftColor },
@@ -523,6 +526,17 @@ function buildChartOption(
       },
     ],
   }
+}
+
+function getChartPoints(view: VisibleSeries) {
+  const first = view.rawPoints[0]
+  const last = view.rawPoints.at(-1)
+
+  if (!first || !last) {
+    return []
+  }
+
+  return filterVisibleRawPoints(view.rawPoints, first.timestamp, last.timestamp)
 }
 
 function maxPrice(points: MarketPoint[]) {
