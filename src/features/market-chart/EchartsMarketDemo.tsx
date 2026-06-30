@@ -27,6 +27,7 @@ import './EchartsMarketDemo.css'
 
 const priceGrid = { left: 42, right: 36, top: 18, height: 300 }
 const volumeGrid = { left: 42, right: 36, top: 342, height: 82 }
+const dragPixelsPerStep = 80
 
 echartsUse([
   LineChart,
@@ -44,6 +45,8 @@ export function EchartsMarketDemo() {
   const [view, setView] = useState(() => buildVisibleSeries(data, 'intraday'))
   const [rebackView, setRebackView] = useState<VisibleSeries | null>(null)
   const [rebound, setRebound] = useState(false)
+  const [isAreaDragging, setIsAreaDragging] = useState(false)
+  const dragBaseViewRef = useRef<VisibleSeries | null>(null)
 
   const trend = getTrend(view.visiblePoints)
   const latestPoint = view.visiblePoints.at(-1)!
@@ -56,23 +59,38 @@ export function EchartsMarketDemo() {
     setView(buildVisibleSeries(data, nextRange))
     setRebackView(null)
     setRebound(false)
+    setIsAreaDragging(false)
+    dragBaseViewRef.current = null
   }
 
-  function applyDragDelta(delta: number) {
-    if (Math.abs(delta) < 24) {
-      return
-    }
-
+  function startAreaDrag() {
     if (!view.range.draggable) {
       flashRebound()
       return
     }
 
+    dragBaseViewRef.current = view
+    setIsAreaDragging(true)
+  }
+
+  function previewAreaDrag(delta: number) {
+    const baseView = dragBaseViewRef.current
+    const stepCount = Math.floor(Math.abs(delta) / dragPixelsPerStep)
+
+    if (!baseView || stepCount === 0) {
+      return
+    }
+
+    if (!baseView.range.draggable) {
+      flashRebound()
+      return
+    }
+
     const direction = delta < 0 ? 'left' : 'right'
-    const next = expandWindow(data, view, direction)
+    const next = expandWindow(data, baseView, direction, stepCount)
 
     if (!rebackView && !next.rebounded) {
-      setRebackView(view)
+      setRebackView(baseView)
     }
 
     setView(next.view)
@@ -80,6 +98,11 @@ export function EchartsMarketDemo() {
     if (next.rebounded) {
       flashRebound()
     }
+  }
+
+  function finishAreaDrag() {
+    dragBaseViewRef.current = null
+    setIsAreaDragging(false)
   }
 
   function flashRebound() {
@@ -133,6 +156,8 @@ export function EchartsMarketDemo() {
                 setView(rebackView)
                 setRebackView(null)
                 setRebound(false)
+                setIsAreaDragging(false)
+                dragBaseViewRef.current = null
               }}
             >
               ↺
@@ -170,7 +195,10 @@ export function EchartsMarketDemo() {
             view={view}
             trendColor={trend.color}
             trendSoftColor={trend.softColor}
-            onAreaDrag={applyDragDelta}
+            isDragging={isAreaDragging}
+            onAreaDragStart={startAreaDrag}
+            onAreaDragMove={previewAreaDrag}
+            onAreaDragEnd={finishAreaDrag}
           />
         </div>
       </section>
@@ -182,23 +210,33 @@ function MarketChart({
   view,
   trendColor,
   trendSoftColor,
-  onAreaDrag,
+  isDragging,
+  onAreaDragStart,
+  onAreaDragMove,
+  onAreaDragEnd,
 }: {
   view: VisibleSeries
   trendColor: string
   trendSoftColor: string
-  onAreaDrag: (delta: number) => void
+  isDragging: boolean
+  onAreaDragStart: () => void
+  onAreaDragMove: (delta: number) => void
+  onAreaDragEnd: () => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<EChartsType | null>(null)
   const viewRef = useRef(view)
-  const onAreaDragRef = useRef(onAreaDrag)
+  const onAreaDragStartRef = useRef(onAreaDragStart)
+  const onAreaDragMoveRef = useRef(onAreaDragMove)
+  const onAreaDragEndRef = useRef(onAreaDragEnd)
   const dragStartXRef = useRef<number | null>(null)
 
   useEffect(() => {
     viewRef.current = view
-    onAreaDragRef.current = onAreaDrag
-  }, [view, onAreaDrag])
+    onAreaDragStartRef.current = onAreaDragStart
+    onAreaDragMoveRef.current = onAreaDragMove
+    onAreaDragEndRef.current = onAreaDragEnd
+  }, [view, onAreaDragStart, onAreaDragMove, onAreaDragEnd])
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -228,30 +266,42 @@ function MarketChart({
       }
 
       dragStartXRef.current = dragPoint.clientX
+      onAreaDragStartRef.current()
     }
 
-    function handleDragEnd(event: ZRenderPointerEvent) {
+    function handleDragMove(event: ZRenderPointerEvent) {
       if (dragStartXRef.current === null) {
         return
       }
 
       const dragPoint = toDragPoint(event)
-      const startX = dragStartXRef.current
-      dragStartXRef.current = null
 
       if (!dragPoint) {
         return
       }
 
-      onAreaDragRef.current(dragPoint.clientX - startX)
+      onAreaDragMoveRef.current(dragPoint.clientX - dragStartXRef.current)
+    }
+
+    function handleDragEnd() {
+      if (dragStartXRef.current === null) {
+        return
+      }
+
+      dragStartXRef.current = null
+      onAreaDragEndRef.current()
     }
 
     zrender?.on('mousedown', handleDragStart)
+    zrender?.on('mousemove', handleDragMove)
     zrender?.on('mouseup', handleDragEnd)
+    zrender?.on('globalout', handleDragEnd)
 
     return () => {
       zrender?.off('mousedown', handleDragStart)
+      zrender?.off('mousemove', handleDragMove)
       zrender?.off('mouseup', handleDragEnd)
+      zrender?.off('globalout', handleDragEnd)
       resizeObserver?.disconnect()
       chart.dispose()
       chartRef.current = null
@@ -259,8 +309,11 @@ function MarketChart({
   }, [])
 
   useEffect(() => {
-    chartRef.current?.setOption(buildChartOption(view, trendColor, trendSoftColor), true)
-  }, [view, trendColor, trendSoftColor])
+    chartRef.current?.setOption(
+      buildChartOption(view, trendColor, trendSoftColor, isDragging),
+      { notMerge: false, lazyUpdate: true },
+    )
+  }, [view, trendColor, trendSoftColor, isDragging])
 
   return <div className="market-chart" data-testid="market-chart" ref={containerRef} />
 }
@@ -321,7 +374,12 @@ function isPointInsideCurrentPriceArea(
   })
 }
 
-function buildChartOption(view: VisibleSeries, trendColor: string, trendSoftColor: string) {
+function buildChartOption(
+  view: VisibleSeries,
+  trendColor: string,
+  trendSoftColor: string,
+  isDragging: boolean,
+) {
   const lineData = view.visiblePoints.map((point) => [
     point.timestamp,
     point.price,
@@ -333,7 +391,8 @@ function buildChartOption(view: VisibleSeries, trendColor: string, trendSoftColo
   const volumeData = view.visiblePoints.map((point) => [point.timestamp, point.volume])
 
   return {
-    animation: true,
+    animation: !isDragging,
+    animationDurationUpdate: isDragging ? 0 : 260,
     grid: [
       priceGrid,
       volumeGrid,

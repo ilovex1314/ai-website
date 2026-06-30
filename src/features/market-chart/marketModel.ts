@@ -210,12 +210,17 @@ export function buildVisibleSeries(
   }
 }
 
-export function expandWindow(data: MarketPoint[], current: VisibleSeries, direction: PanDirection) {
+export function expandWindow(
+  data: MarketPoint[],
+  current: VisibleSeries,
+  direction: PanDirection,
+  stepCount = 1,
+) {
   if (!current.range.draggable) {
     return { view: current, rebounded: true }
   }
 
-  const step = Math.max(1, Math.round(current.range.panStepDays * tradingDayMinutes))
+  const step = Math.max(1, Math.round(current.range.panStepDays * tradingDayMinutes * stepCount))
   const nextStart = direction === 'right' ? current.windowStart - step : current.windowStart
   const nextEnd = direction === 'left' ? current.windowEnd + step : current.windowEnd
   const clampedStart = clamp(nextStart, 0, current.windowEnd - 1)

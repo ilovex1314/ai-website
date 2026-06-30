@@ -52,6 +52,7 @@ afterEach(() => {
   echartsMock.chart.setOption.mockClear()
   echartsMock.chart.resize.mockClear()
   echartsMock.chart.dispose.mockClear()
+  dragStartClientX = 0
   window.history.pushState({}, '', '/')
 })
 
@@ -93,10 +94,14 @@ describe('EchartsMarketDemo', () => {
     fireEvent.click(screen.getByRole('button', { name: '日K' }))
     expect(screen.getByTestId('window-range')).toHaveTextContent('05/31')
 
-    dragInPriceArea(320, 420)
+    startDragInPriceArea(320)
+    moveDragInPriceArea(420)
 
     expect(screen.getByTestId('window-range')).toHaveTextContent('05/30')
     expect(screen.getByTestId('window-range')).toHaveTextContent('06/30')
+    expect(echartsMock.chart.setOption.mock.calls.some(([option]) => option.animation === false)).toBe(true)
+
+    endDragInPriceArea(420)
   })
 
   it('ignores drags above the filled price area', () => {
@@ -113,7 +118,43 @@ describe('EchartsMarketDemo', () => {
 })
 
 function dragInPriceArea(startClientX: number, endClientX: number) {
-  dragInChart({ startClientX, endClientX, offsetX: 780, offsetY: 280 })
+  startDragInPriceArea(startClientX)
+  moveDragInPriceArea(endClientX)
+  endDragInPriceArea(endClientX)
+}
+
+let dragStartClientX = 0
+
+function startDragInPriceArea(startClientX: number) {
+  dragStartClientX = startClientX
+
+  act(() => {
+    echartsMock.handlers.get('mousedown')?.({
+      offsetX: 780,
+      offsetY: 280,
+      event: { clientX: startClientX },
+    })
+  })
+}
+
+function moveDragInPriceArea(clientX: number) {
+  act(() => {
+    echartsMock.handlers.get('mousemove')?.({
+      offsetX: 780 + clientX - dragStartClientX,
+      offsetY: 280,
+      event: { clientX },
+    })
+  })
+}
+
+function endDragInPriceArea(clientX: number) {
+  act(() => {
+    echartsMock.handlers.get('mouseup')?.({
+      offsetX: 780 + clientX - dragStartClientX,
+      offsetY: 280,
+      event: { clientX },
+    })
+  })
 }
 
 function dragInChart({
@@ -132,6 +173,11 @@ function dragInChart({
       offsetX,
       offsetY,
       event: { clientX: startClientX },
+    })
+    echartsMock.handlers.get('mousemove')?.({
+      offsetX: offsetX + endClientX - startClientX,
+      offsetY,
+      event: { clientX: endClientX },
     })
     echartsMock.handlers.get('mouseup')?.({
       offsetX: offsetX + endClientX - startClientX,
