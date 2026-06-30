@@ -12,16 +12,21 @@ import { CanvasRenderer } from 'echarts/renderers'
 import {
   buildVisibleSeries,
   createMarketData,
+  expandWindow,
+  formatWindowRange,
   formatTooltipRows,
   formatTime,
   getTrend,
-  panWindow,
+  isPointInPriceArea,
   rangeKeys,
   type MarketPoint,
   type RangeKey,
   type VisibleSeries,
 } from './marketModel'
 import './EchartsMarketDemo.css'
+
+const priceGrid = { left: 42, right: 36, top: 18, height: 300 }
+const volumeGrid = { left: 42, right: 36, top: 342, height: 82 }
 
 echartsUse([
   LineChart,
@@ -39,7 +44,6 @@ export function EchartsMarketDemo() {
   const [view, setView] = useState(() => buildVisibleSeries(data, 'intraday'))
   const [rebackView, setRebackView] = useState<VisibleSeries | null>(null)
   const [rebound, setRebound] = useState(false)
-  const pointerStartX = useRef<number | null>(null)
 
   const trend = getTrend(view.visiblePoints)
   const latestPoint = view.visiblePoints.at(-1)!
@@ -54,36 +58,6 @@ export function EchartsMarketDemo() {
     setRebound(false)
   }
 
-  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    pointerStartX.current = event.clientX
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-  }
-
-  function handlePointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    if (pointerStartX.current === null) {
-      return
-    }
-
-    const delta = event.clientX - pointerStartX.current
-    pointerStartX.current = null
-
-    applyDragDelta(delta)
-  }
-
-  function handleMouseDown(event: React.MouseEvent<HTMLDivElement>) {
-    pointerStartX.current = event.clientX
-  }
-
-  function handleMouseUp(event: React.MouseEvent<HTMLDivElement>) {
-    if (pointerStartX.current === null) {
-      return
-    }
-
-    const delta = event.clientX - pointerStartX.current
-    pointerStartX.current = null
-    applyDragDelta(delta)
-  }
-
   function applyDragDelta(delta: number) {
     if (Math.abs(delta) < 24) {
       return
@@ -95,7 +69,7 @@ export function EchartsMarketDemo() {
     }
 
     const direction = delta < 0 ? 'left' : 'right'
-    const next = panWindow(data, view, direction)
+    const next = expandWindow(data, view, direction)
 
     if (!rebackView && !next.rebounded) {
       setRebackView(view)
@@ -184,20 +158,19 @@ export function EchartsMarketDemo() {
 
         <p className="drag-hint">
           {view.range.draggable
-            ? '拖拽价格图与成交量图之间的区域：向右看更早，向左看更新。'
+            ? '拖拽曲线下方的填充区域：向右加入更早数据，向左加入更新数据。'
             : '分时图不支持拖拽，切换到 5日 / 日K / 周K 等范围后可拖拽。'}
+        </p>
+        <p className="window-range" data-testid="window-range">
+          当前窗口 {formatWindowRange(view)}
         </p>
 
         <div className={`chart-shell ${rebound ? 'is-rebounding' : ''}`}>
-          <MarketChart view={view} trendColor={trend.color} trendSoftColor={trend.softColor} />
-          <div
-            className="drag-surface"
-            data-testid="drag-surface"
-            role="presentation"
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
+          <MarketChart
+            view={view}
+            trendColor={trend.color}
+            trendSoftColor={trend.softColor}
+            onAreaDrag={applyDragDelta}
           />
         </div>
       </section>
@@ -209,13 +182,23 @@ function MarketChart({
   view,
   trendColor,
   trendSoftColor,
+  onAreaDrag,
 }: {
   view: VisibleSeries
   trendColor: string
   trendSoftColor: string
+  onAreaDrag: (delta: number) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<EChartsType | null>(null)
+  const viewRef = useRef(view)
+  const onAreaDragRef = useRef(onAreaDrag)
+  const dragStartXRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    viewRef.current = view
+    onAreaDragRef.current = onAreaDrag
+  }, [view, onAreaDrag])
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -223,7 +206,8 @@ function MarketChart({
     }
 
     chartRef.current = init(containerRef.current)
-    const chart = chartRef.current
+    const chart = chartRef.current as AreaDragChart
+    const zrender = chart.getZr?.()
     const resizeObserver =
       typeof ResizeObserver === 'undefined'
         ? null
@@ -235,7 +219,39 @@ function MarketChart({
       resizeObserver.observe(containerRef.current)
     }
 
+    function handleDragStart(event: ZRenderPointerEvent) {
+      const dragPoint = toDragPoint(event)
+
+      if (!dragPoint || !isPointInsideCurrentPriceArea(chart, viewRef.current, dragPoint)) {
+        dragStartXRef.current = null
+        return
+      }
+
+      dragStartXRef.current = dragPoint.clientX
+    }
+
+    function handleDragEnd(event: ZRenderPointerEvent) {
+      if (dragStartXRef.current === null) {
+        return
+      }
+
+      const dragPoint = toDragPoint(event)
+      const startX = dragStartXRef.current
+      dragStartXRef.current = null
+
+      if (!dragPoint) {
+        return
+      }
+
+      onAreaDragRef.current(dragPoint.clientX - startX)
+    }
+
+    zrender?.on('mousedown', handleDragStart)
+    zrender?.on('mouseup', handleDragEnd)
+
     return () => {
+      zrender?.off('mousedown', handleDragStart)
+      zrender?.off('mouseup', handleDragEnd)
       resizeObserver?.disconnect()
       chart.dispose()
       chartRef.current = null
@@ -247,6 +263,62 @@ function MarketChart({
   }, [view, trendColor, trendSoftColor])
 
   return <div className="market-chart" data-testid="market-chart" ref={containerRef} />
+}
+
+type ZRenderPointerEvent = {
+  offsetX?: number
+  offsetY?: number
+  event?: {
+    clientX?: number
+  }
+}
+
+type ZRenderLike = {
+  on: (eventName: string, handler: (event: ZRenderPointerEvent) => void) => void
+  off: (eventName: string, handler: (event: ZRenderPointerEvent) => void) => void
+}
+
+type AreaDragChart = EChartsType & {
+  getWidth?: () => number
+  getZr?: () => ZRenderLike
+}
+
+function toDragPoint(event: ZRenderPointerEvent) {
+  if (
+    event.offsetX === undefined ||
+    event.offsetY === undefined ||
+    event.event?.clientX === undefined
+  ) {
+    return null
+  }
+
+  return {
+    x: event.offsetX,
+    y: event.offsetY,
+    clientX: event.event.clientX,
+  }
+}
+
+function isPointInsideCurrentPriceArea(
+  chart: AreaDragChart,
+  view: VisibleSeries,
+  point: { x: number; y: number },
+) {
+  const chartWidth = chart.getWidth?.() ?? 0
+  const prices = view.visiblePoints.map((visiblePoint) => visiblePoint.price)
+
+  if (!view.range.draggable || chartWidth <= 0 || prices.length === 0) {
+    return false
+  }
+
+  return isPointInPriceArea(point, view.visiblePoints, {
+    left: priceGrid.left,
+    right: chartWidth - priceGrid.right,
+    top: priceGrid.top,
+    bottom: priceGrid.top + priceGrid.height,
+    minPrice: Math.min(...prices),
+    maxPrice: Math.max(...prices),
+  })
 }
 
 function buildChartOption(view: VisibleSeries, trendColor: string, trendSoftColor: string) {
@@ -263,8 +335,8 @@ function buildChartOption(view: VisibleSeries, trendColor: string, trendSoftColo
   return {
     animation: true,
     grid: [
-      { left: 42, right: 36, top: 18, height: 300 },
-      { left: 42, right: 36, top: 342, height: 82 },
+      priceGrid,
+      volumeGrid,
     ],
     tooltip: {
       trigger: 'axis',

@@ -3,10 +3,12 @@ import {
   buildVisibleSeries,
   createMarketData,
   downsampleAveragePoints,
+  expandWindow,
+  formatWindowRange,
   formatTooltipRows,
   getRange,
   getTrend,
-  panWindow,
+  isPointInPriceArea,
   rangeKeys,
 } from './marketModel'
 
@@ -68,16 +70,42 @@ describe('marketModel', () => {
     ).toMatchObject({ direction: 'down', color: '#16a779' })
   })
 
-  it('pans draggable windows and reports boundary rebounds', () => {
+  it('expands draggable windows and reports boundary rebounds', () => {
     const data = createMarketData()
     const current = buildVisibleSeries(data, 'fiveDay')
-    const older = panWindow(data, current, 'right')
-    const newer = panWindow(data, older.view, 'left')
+    const older = expandWindow(data, current, 'right')
+    const newer = expandWindow(data, current, 'left')
     const intraday = buildVisibleSeries(data, 'intraday')
 
     expect(older.view.windowStart).toBeLessThan(current.windowStart)
+    expect(older.view.windowEnd).toBe(current.windowEnd)
     expect(newer.view.windowStart).toBe(current.windowStart)
-    expect(panWindow(data, intraday, 'right')).toMatchObject({ rebounded: true })
+    expect(newer).toMatchObject({ rebounded: true })
+    expect(expandWindow(data, intraday, 'right')).toMatchObject({ rebounded: true })
+  })
+
+  it('expands the daily window back by one trading day while keeping the latest edge', () => {
+    const data = createMarketData()
+    const current = buildVisibleSeries(data, 'day')
+    const older = expandWindow(data, current, 'right')
+
+    expect(formatWindowRange(current)).toBe('05/31 - 06/30')
+    expect(formatWindowRange(older.view)).toBe('05/30 - 06/30')
+    expect(older.view.rawPoints.length).toBeGreaterThan(current.rawPoints.length)
+    expect(older.view.visiblePoints.length).toBeLessThanOrEqual(getRange('day').targetPoints)
+  })
+
+  it('detects drag starts inside the filled area below the curved price line', () => {
+    const points = [
+      { timestamp: 1, price: 10, volume: 1, turnover: 1 },
+      { timestamp: 2, price: 15, volume: 1, turnover: 1 },
+      { timestamp: 3, price: 20, volume: 1, turnover: 1 },
+    ]
+    const geometry = { left: 0, right: 200, top: 0, bottom: 100, minPrice: 10, maxPrice: 20 }
+
+    expect(isPointInPriceArea({ x: 100, y: 80 }, points, geometry)).toBe(true)
+    expect(isPointInPriceArea({ x: 100, y: 20 }, points, geometry)).toBe(false)
+    expect(isPointInPriceArea({ x: 250, y: 80 }, points, geometry)).toBe(false)
   })
 
   it('formats tooltip rows with trading fields', () => {

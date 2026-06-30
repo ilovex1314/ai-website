@@ -15,6 +15,7 @@ export type MarketRange = {
   days: number
   targetPoints: number
   draggable: boolean
+  panStepDays: number
 }
 
 export type VisibleSeries = {
@@ -27,6 +28,15 @@ export type VisibleSeries = {
 
 export type PanDirection = 'left' | 'right'
 
+export type PriceAreaGeometry = {
+  left: number
+  right: number
+  top: number
+  bottom: number
+  minPrice: number
+  maxPrice: number
+}
+
 export const rangeKeys: RangeKey[] = [
   'intraday',
   'fiveDay',
@@ -38,13 +48,62 @@ export const rangeKeys: RangeKey[] = [
 ]
 
 const ranges: Record<RangeKey, MarketRange> = {
-  intraday: { key: 'intraday', label: '分时', days: 1, targetPoints: 240, draggable: false },
-  fiveDay: { key: 'fiveDay', label: '5日', days: 5, targetPoints: 260, draggable: true },
-  day: { key: 'day', label: '日K', days: 30, targetPoints: 240, draggable: true },
-  week: { key: 'week', label: '周K', days: 120, targetPoints: 220, draggable: true },
-  month: { key: 'month', label: '月K', days: 365, targetPoints: 220, draggable: true },
-  quarter: { key: 'quarter', label: '季K', days: 730, targetPoints: 200, draggable: true },
-  year: { key: 'year', label: '年K', days: 1825, targetPoints: 200, draggable: true },
+  intraday: {
+    key: 'intraday',
+    label: '分时',
+    days: 1,
+    targetPoints: 240,
+    draggable: false,
+    panStepDays: 0,
+  },
+  fiveDay: {
+    key: 'fiveDay',
+    label: '5日',
+    days: 5,
+    targetPoints: 260,
+    draggable: true,
+    panStepDays: 1,
+  },
+  day: {
+    key: 'day',
+    label: '日K',
+    days: 30,
+    targetPoints: 240,
+    draggable: true,
+    panStepDays: 1,
+  },
+  week: {
+    key: 'week',
+    label: '周K',
+    days: 120,
+    targetPoints: 220,
+    draggable: true,
+    panStepDays: 5,
+  },
+  month: {
+    key: 'month',
+    label: '月K',
+    days: 365,
+    targetPoints: 220,
+    draggable: true,
+    panStepDays: 20,
+  },
+  quarter: {
+    key: 'quarter',
+    label: '季K',
+    days: 730,
+    targetPoints: 200,
+    draggable: true,
+    panStepDays: 60,
+  },
+  year: {
+    key: 'year',
+    label: '年K',
+    days: 1825,
+    targetPoints: 200,
+    draggable: true,
+    panStepDays: 120,
+  },
 }
 
 const minute = 60 * 1000
@@ -132,12 +191,13 @@ export function buildVisibleSeries(
   data: MarketPoint[],
   rangeKey: RangeKey,
   requestedStart?: number,
+  requestedEnd?: number,
 ): VisibleSeries {
   const range = getRange(rangeKey)
-  const maxStart = Math.max(0, data.length - range.days * tradingDayMinutes)
-  const windowSize = data.length - maxStart
-  const start = clamp(requestedStart ?? maxStart, 0, maxStart)
-  const end = Math.min(data.length, start + windowSize)
+  const defaultWindowSize = range.days * tradingDayMinutes
+  const defaultStart = Math.max(0, data.length - defaultWindowSize)
+  const start = clamp(requestedStart ?? defaultStart, 0, data.length - 1)
+  const end = clamp(requestedEnd ?? data.length, start + 1, data.length)
   const rawPoints = data.slice(start, end)
   const visiblePoints = downsampleAveragePoints(rawPoints, range.targetPoints)
 
@@ -150,22 +210,55 @@ export function buildVisibleSeries(
   }
 }
 
-export function panWindow(data: MarketPoint[], current: VisibleSeries, direction: PanDirection) {
+export function expandWindow(data: MarketPoint[], current: VisibleSeries, direction: PanDirection) {
   if (!current.range.draggable) {
     return { view: current, rebounded: true }
   }
 
-  const windowSize = current.windowEnd - current.windowStart
-  const step = Math.max(1, Math.round(windowSize * 0.35))
-  const nextStart =
-    direction === 'left' ? current.windowStart + step : current.windowStart - step
-  const clampedStart = clamp(nextStart, 0, data.length - windowSize)
-  const rebounded = nextStart !== clampedStart
+  const step = Math.max(1, Math.round(current.range.panStepDays * tradingDayMinutes))
+  const nextStart = direction === 'right' ? current.windowStart - step : current.windowStart
+  const nextEnd = direction === 'left' ? current.windowEnd + step : current.windowEnd
+  const clampedStart = clamp(nextStart, 0, current.windowEnd - 1)
+  const clampedEnd = clamp(nextEnd, clampedStart + 1, data.length)
+  const rebounded = nextStart !== clampedStart || nextEnd !== clampedEnd
 
   return {
-    view: buildVisibleSeries(data, current.range.key, clampedStart),
+    view: buildVisibleSeries(data, current.range.key, clampedStart, clampedEnd),
     rebounded,
   }
+}
+
+export function isPointInPriceArea(
+  point: { x: number; y: number },
+  visiblePoints: MarketPoint[],
+  geometry: PriceAreaGeometry,
+) {
+  if (
+    visiblePoints.length < 2 ||
+    point.x < geometry.left ||
+    point.x > geometry.right ||
+    point.y < geometry.top ||
+    point.y > geometry.bottom
+  ) {
+    return false
+  }
+
+  const xRatio = (point.x - geometry.left) / (geometry.right - geometry.left)
+  const pointIndex = clamp(Math.round(xRatio * (visiblePoints.length - 1)), 0, visiblePoints.length - 1)
+  const lineY = priceToY(visiblePoints[pointIndex].price, geometry)
+
+  return point.y >= lineY && point.y <= geometry.bottom
+}
+
+export function formatWindowRange(view: VisibleSeries) {
+  const first = view.rawPoints[0]
+  const last = view.rawPoints.at(-1)
+
+  if (!first || !last) {
+    return ''
+  }
+
+  return `${formatDate(first.timestamp)} - ${formatDate(last.timestamp)}`
 }
 
 export function getTrend(points: MarketPoint[]) {
@@ -202,6 +295,14 @@ export function formatTime(timestamp: number) {
   }).format(timestamp)
 }
 
+function formatDate(timestamp: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'America/New_York',
+  }).format(timestamp)
+}
+
 function average(values: number[]) {
   return sum(values) / values.length
 }
@@ -217,6 +318,15 @@ function round(value: number, digits: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
+}
+
+function priceToY(price: number, geometry: PriceAreaGeometry) {
+  if (geometry.maxPrice === geometry.minPrice) {
+    return geometry.bottom
+  }
+
+  const priceRatio = (price - geometry.minPrice) / (geometry.maxPrice - geometry.minPrice)
+  return geometry.bottom - priceRatio * (geometry.bottom - geometry.top)
 }
 
 function signed(value: number, digits: number) {
