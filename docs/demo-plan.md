@@ -1,42 +1,41 @@
-# AI Website Demo Plan
+# AI Website Demo 计划
 
-This project converts the Claude Design and vibe-coding research into a sequence
-of focused React demos. The first commit establishes the shell, topic data, and
-documentation. Later commits should implement one topic at a time.
+本项目会把 Claude Design 和 vibe-coding 调研结果转换成一组聚焦的
+React demo。第一版提交只负责建立应用框架、topic 数据和文档；后续每次
+围绕一个 topic 实现一个可交互样例。
 
-## Topic Order
+## Topic 顺序
 
-1. ECharts Interactive Charts
-   - Prove chart rendering, data binding, click states, and responsive layout.
-2. Matter.js Physics Lab
-   - Prove 2D physics, direct manipulation, reset, and deterministic scenes.
-3. Three.js Custom 3D Scene
-   - Prove a nonblank WebGL canvas, pointer response, and stable framing.
-4. Spline 3D Embed
-   - Prove iframe/embed integration and clean fallbacks.
-5. Shadertoy Shader Remix
-   - Prove shader runtime basics and editable uniforms.
-6. Unicorn Studio Effects Embed
-   - Prove exported HTML/embed isolation and fallback motion.
-7. Rive Interactive 2D Animation
-   - Prove asset loading and state-machine-ready controls.
-8. Mapbox Interactive Map
-   - Prove token handling, map rendering, style switching, and overlays.
+1. ECharts 交互图表
+   - 验证图表渲染、数据绑定、点击状态和响应式布局。
+2. Matter.js 物理实验
+   - 验证二维物理、直接拖拽、重置和可复现的初始场景。
+3. Three.js 自定义 3D 场景
+   - 验证非空 WebGL canvas、指针响应和稳定构图。
+4. Spline 3D 嵌入
+   - 验证 iframe/embed 集成和优雅降级。
+5. Shadertoy Shader 改造
+   - 验证 shader 运行时基础能力和可编辑 uniforms。
+6. Unicorn Studio WebGL 特效嵌入
+   - 验证导出 HTML/embed 的隔离方式和本地 fallback 动效。
+7. Rive 交互二维动画
+   - 验证资源加载和预留给状态机输入的控制接口。
+8. Mapbox 交互地图
+   - 验证 token 处理、地图渲染、样式切换和数据覆盖层。
 
-## Working Rule
+## 工作规则
 
-Each topic should land as a self-contained demo with:
+每个 topic 都应该作为一个独立 demo 落地，并满足：
 
-- a visible route under `/topics/<slug>`
-- a small data or config boundary
-- one focused test for the topic behavior
-- verification with `npm test`, `npm run build`, and browser inspection when the
-  topic renders canvas, iframe, or map surfaces
+- 在 `/topics/<slug>` 下有可见页面
+- 有清晰的数据或配置边界
+- 至少有一个聚焦该 topic 行为的测试
+- 提交前运行 `npm test`、`npm run build`
+- 当 topic 涉及 canvas、iframe 或地图表面时，需要额外做浏览器检查
 
-## Source Research Summary
+## 调研结论摘要
 
-The research points to an AI orchestration layer plus specialist engines:
-ECharts for complex charting, Spline for ready-made 3D assets, Three.js for
-custom 3D, Shadertoy for shader remixing, Unicorn Studio for no-code WebGL
-effects, Matter.js for 2D rigid-body physics, Rive for interactive 2D animation,
-and Mapbox GL JS for maps.
+这套工作流可以理解为“AI 编排层 + 专用前端引擎”：ECharts 负责复杂图表，
+Spline 负责现成 3D 资产，Three.js 负责自定义 3D，Shadertoy 负责 shader
+改造，Unicorn Studio 负责无代码 WebGL 特效，Matter.js 负责二维刚体物理，
+Rive 负责交互二维动画，Mapbox GL JS 负责地图。
