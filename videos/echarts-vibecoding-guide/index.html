@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ECharts 行情图 vibe-coding 复盘</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #fbfaf7;
+        color: #171717;
+        font-family: sans-serif;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #fbfaf7;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #fbfaf7;
+      }
+
+      .scene:not(#scene-1) {
+        opacity: 0;
+      }
+
+      .page {
+        position: absolute;
+        inset: 82px 104px 132px;
+      }
+
+      .eyebrow {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: #f0445f;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        max-width: 1280px;
+        font-size: 86px;
+        line-height: 1.05;
+        font-weight: 850;
+      }
+
+      h2 {
+        max-width: 1160px;
+        font-size: 58px;
+        line-height: 1.14;
+        font-weight: 820;
+      }
+
+      .lead {
+        max-width: 1040px;
+        margin-top: 34px;
+        font-size: 35px;
+        line-height: 1.48;
+        color: #475467;
+      }
+
+      .topline {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 30px;
+      }
+
+      .dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background: #f0445f;
+      }
+
+      .pill-row {
+        display: flex;
+        gap: 18px;
+        margin-top: 48px;
+      }
+
+      .pill {
+        padding: 16px 24px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+        font-size: 28px;
+        font-weight: 700;
+        color: #475467;
+      }
+
+      .pill.active {
+        border-color: #f0445f;
+        color: #f0445f;
+        background: #fff1f3;
+      }
+
+      .chart-shell {
+        position: absolute;
+        left: 104px;
+        right: 104px;
+        bottom: 154px;
+        height: 560px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 18px 48px rgba(16, 24, 40, 0.08);
+        overflow: hidden;
+      }
+
+      .chart-head {
+        position: absolute;
+        top: 34px;
+        left: 48px;
+        display: flex;
+        gap: 18px;
+        align-items: baseline;
+      }
+
+      .price {
+        font-size: 58px;
+        font-weight: 850;
+        color: #f0445f;
+      }
+
+      .delta {
+        font-size: 30px;
+        font-weight: 800;
+        color: #f0445f;
+      }
+
+      .mock-chart {
+        position: absolute;
+        left: 64px;
+        right: 64px;
+        top: 126px;
+        bottom: 68px;
+      }
+
+      .grid-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #edf0f2;
+      }
+
+      .grid-line:nth-child(1) {
+        top: 6%;
+      }
+
+      .grid-line:nth-child(2) {
+        top: 31%;
+      }
+
+      .grid-line:nth-child(3) {
+        top: 56%;
+      }
+
+      .grid-line:nth-child(4) {
+        top: 81%;
+      }
+
+      .chart-svg {
+        position: absolute;
+        inset: 0;
+        overflow: visible;
+      }
+
+      .chart-fill {
+        fill: url(#redFade);
+      }
+
+      .chart-line {
+        fill: none;
+        stroke: #f0445f;
+        stroke-width: 6;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+
+      .volume-bars {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 70px;
+        display: grid;
+        grid-template-columns: repeat(36, 1fr);
+        align-items: end;
+        gap: 8px;
+      }
+
+      .volume-bars i {
+        display: block;
+        min-height: 8px;
+        background: rgba(240, 68, 95, 0.5);
+      }
+
+      .panel {
+        position: absolute;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 18px 48px rgba(16, 24, 40, 0.08);
+      }
+
+      .code-panel {
+        right: 104px;
+        top: 210px;
+        width: 700px;
+        padding: 34px;
+        font-family: monospace;
+        font-size: 25px;
+        line-height: 1.65;
+        color: #344054;
+      }
+
+      .code-panel b {
+        color: #f0445f;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-top: 58px;
+      }
+
+      .step {
+        min-height: 210px;
+        padding: 32px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .step strong {
+        display: block;
+        margin-bottom: 16px;
+        font-size: 31px;
+      }
+
+      .step span {
+        font-size: 25px;
+        line-height: 1.45;
+        color: #667085;
+      }
+
+      .image-card {
+        position: absolute;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 18px 48px rgba(16, 24, 40, 0.1);
+      }
+
+      .image-card img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .annotation {
+        position: absolute;
+        padding: 16px 20px;
+        border-radius: 8px;
+        background: #171717;
+        color: #ffffff;
+        font-size: 25px;
+        font-weight: 700;
+        box-shadow: 0 12px 30px rgba(16, 24, 40, 0.2);
+      }
+
+      .arrow {
+        position: absolute;
+        height: 6px;
+        border-radius: 999px;
+        background: #f0445f;
+        transform-origin: left center;
+      }
+
+      .arrow::after {
+        content: "";
+        position: absolute;
+        right: -2px;
+        top: -9px;
+        width: 0;
+        height: 0;
+        border-top: 12px solid transparent;
+        border-bottom: 12px solid transparent;
+        border-left: 20px solid #f0445f;
+      }
+
+      .window-demo {
+        position: absolute;
+        left: 190px;
+        top: 354px;
+        width: 1450px;
+        height: 260px;
+      }
+
+      .axis {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 112px;
+        height: 8px;
+        border-radius: 999px;
+        background: #d0d5dd;
+      }
+
+      .window {
+        position: absolute;
+        top: 74px;
+        height: 84px;
+        border-radius: 8px;
+        border: 4px solid #f0445f;
+        background: rgba(240, 68, 95, 0.12);
+      }
+
+      .window.old {
+        left: 360px;
+        width: 620px;
+      }
+
+      .window.new {
+        left: 210px;
+        width: 770px;
+      }
+
+      .axis-label {
+        position: absolute;
+        top: 180px;
+        font-size: 25px;
+        color: #667085;
+        font-family: monospace;
+      }
+
+      .axis-label.left {
+        left: 198px;
+      }
+
+      .axis-label.mid {
+        left: 456px;
+      }
+
+      .axis-label.right {
+        right: 430px;
+      }
+
+      .drag-zone {
+        position: absolute;
+        left: 226px;
+        top: 284px;
+        width: 1220px;
+        height: 330px;
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(240, 68, 95, 0.28), rgba(255, 255, 255, 0));
+        border: 3px dashed rgba(240, 68, 95, 0.45);
+      }
+
+      .white-zone {
+        position: absolute;
+        left: 226px;
+        top: 188px;
+        width: 1220px;
+        height: 120px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 3px dashed rgba(71, 84, 103, 0.32);
+      }
+
+      .rebound {
+        position: absolute;
+        top: 190px;
+        width: 190px;
+        height: 520px;
+        background: radial-gradient(ellipse at right, rgba(113, 122, 134, 0.28), rgba(113, 122, 134, 0));
+        border-radius: 100% 0 0 100% / 50% 0 0 50%;
+      }
+
+      .rebound.right {
+        right: 110px;
+      }
+
+      .jitter-row {
+        position: absolute;
+        left: 128px;
+        right: 128px;
+        top: 294px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 34px;
+      }
+
+      .jitter-card {
+        height: 460px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 18px 48px rgba(16, 24, 40, 0.08);
+      }
+
+      .jitter-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .checklist {
+        position: absolute;
+        left: 104px;
+        right: 104px;
+        top: 290px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 22px;
+      }
+
+      .check {
+        min-height: 250px;
+        padding: 30px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .check em {
+        display: inline-flex;
+        width: 44px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 26px;
+        border-radius: 999px;
+        background: #edf7f3;
+        color: #16a779;
+        font-style: normal;
+        font-size: 28px;
+        font-weight: 900;
+      }
+
+      .check strong {
+        display: block;
+        margin-bottom: 16px;
+        font-size: 31px;
+      }
+
+      .check span {
+        font-size: 24px;
+        line-height: 1.45;
+        color: #667085;
+      }
+
+      .caption {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 42px;
+        height: 74px;
+        z-index: 70;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .caption-group {
+        position: absolute;
+        max-width: 1480px;
+        padding: 14px 28px;
+        border-radius: 8px;
+        background: rgba(23, 23, 23, 0.88);
+        color: #ffffff;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1.34;
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .wipe {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        pointer-events: none;
+        transform: translateX(-1920px);
+      }
+
+      #wipe-a {
+        background: #f0445f;
+      }
+
+      #wipe-b {
+        background: #171717;
+      }
+
+      .small-note {
+        margin-top: 22px;
+        font-size: 24px;
+        color: #667085;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="echarts-vibecoding-guide"
+      data-width="1920"
+      data-height="1080"
+      data-start="0"
+      data-duration="100"
+    >
+      <div id="scene-1" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">vibe-coding 复盘</span></div>
+          <h1>从需求到可复现 Demo：ECharts 行情图</h1>
+          <p class="lead">一个复杂图表交互如何从“能画出来”，迭代到“读者可以照着复现”。</p>
+          <div class="pill-row">
+            <span class="pill active">React + Vite</span>
+            <span class="pill active">ECharts</span>
+            <span class="pill">拖拽窗口</span>
+            <span class="pill">中文指引</span>
+          </div>
+        </div>
+        <div class="chart-shell" style="height: 500px; bottom: 126px" data-layout-allow-overlap>
+          <div class="chart-head"><span class="price">25820.144↑</span><span class="delta">+2.07%</span></div>
+          <div class="mock-chart">
+            <span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span>
+            <svg class="chart-svg" viewBox="0 0 1600 360" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="redFade" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f0445f" stop-opacity="0.32" />
+                  <stop offset="62%" stop-color="#f0445f" stop-opacity="0.12" />
+                  <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path class="chart-fill" d="M0,235 C70,160 120,190 180,135 C260,55 320,250 420,205 C520,150 580,180 690,130 C820,70 900,170 1010,120 C1120,62 1200,128 1320,82 C1430,40 1500,88 1600,34 L1600,360 L0,360 Z" />
+              <path class="chart-line" d="M0,235 C70,160 120,190 180,135 C260,55 320,250 420,205 C520,150 580,180 690,130 C820,70 900,170 1010,120 C1120,62 1200,128 1320,82 C1430,40 1500,88 1600,34" />
+            </svg>
+            <div class="volume-bars">
+              <i style="height: 62px"></i><i style="height: 18px"></i><i style="height: 12px"></i><i style="height: 22px"></i><i style="height: 14px"></i><i style="height: 17px"></i>
+              <i style="height: 15px"></i><i style="height: 20px"></i><i style="height: 13px"></i><i style="height: 16px"></i><i style="height: 14px"></i><i style="height: 21px"></i>
+              <i style="height: 12px"></i><i style="height: 15px"></i><i style="height: 13px"></i><i style="height: 17px"></i><i style="height: 14px"></i><i style="height: 18px"></i>
+              <i style="height: 16px"></i><i style="height: 14px"></i><i style="height: 13px"></i><i style="height: 16px"></i><i style="height: 15px"></i><i style="height: 17px"></i>
+              <i style="height: 14px"></i><i style="height: 18px"></i><i style="height: 20px"></i><i style="height: 16px"></i><i style="height: 14px"></i><i style="height: 19px"></i>
+              <i style="height: 18px"></i><i style="height: 24px"></i><i style="height: 22px"></i><i style="height: 26px"></i><i style="height: 28px"></i><i style="height: 70px"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="scene-2" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">目标不是一张静态图</span></div>
+          <h2>这次验证的是复杂图表交互的收敛能力</h2>
+          <div class="steps">
+            <div class="step"><strong>行情信息</strong><span>x 轴是时间，y 轴是价格，hover 展示涨跌额、涨跌幅、成交量、成交额。</span></div>
+            <div class="step"><strong>范围切换</strong><span>分时、5日、日K、周K、月K、季K、年K共用同一套窗口模型。</span></div>
+            <div class="step"><strong>拖拽窗口</strong><span>不是平移图表，而是在固定画布里扩展或收缩 x 轴覆盖范围。</span></div>
+          </div>
+          <p class="lead">所以核心工作不是“画线”，而是把用户描述里的交互语义翻译成稳定的数据窗口。</p>
+        </div>
+      </div>
+
+      <div id="scene-3" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">技术选型</span></div>
+          <h2>克制一点：先把 Demo 做成可跑、可测、可复现</h2>
+          <p class="lead">React + Vite 负责页面组织，ECharts 负责图表能力，数据先用确定性模拟，避免接口、跨域和停盘影响迭代。</p>
+        </div>
+        <div class="image-card" style="left: 104px; top: 440px; width: 890px; height: 430px">
+          <img src="./assets/local-demo.png" alt="本地运行的 ECharts 行情图 Demo" />
+        </div>
+        <div class="panel code-panel">
+          npm install echarts<br />
+          echartsUse([<br />
+          &nbsp;&nbsp;<b>LineChart</b>, BarChart,<br />
+          &nbsp;&nbsp;GridComponent,<br />
+          &nbsp;&nbsp;TooltipComponent,<br />
+          &nbsp;&nbsp;CanvasRenderer<br />
+          ])
+          <div class="small-note">先收敛交互模型，再替换真实数据源。</div>
+        </div>
+      </div>
+
+      <div id="scene-4" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">关键误解</span></div>
+          <h2>拖拽不是固定窗口平移，而是在原窗口上追加数据</h2>
+        </div>
+        <div class="window-demo">
+          <div class="axis"></div>
+          <div class="window old"></div>
+          <div class="window new"></div>
+          <span class="axis-label left">05-30 新增</span>
+          <span class="axis-label mid">05-31 原起点</span>
+          <span class="axis-label right">06-30 终点不变</span>
+          <div class="arrow" style="left: 470px; top: 42px; width: 300px; transform: rotate(180deg)"></div>
+        </div>
+        <div class="annotation" style="left: 1150px; top: 630px">画布宽度不变，x 轴范围变长，视觉上被压缩</div>
+      </div>
+
+      <div id="scene-5" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">交互区域被重新定义</span></div>
+          <h2>曲线下方扩展，曲线上方收缩</h2>
+        </div>
+        <div class="drag-zone"></div>
+        <div class="white-zone"></div>
+        <svg class="chart-svg" style="left: 226px; top: 180px; width: 1220px; height: 430px" viewBox="0 0 1220 430" preserveAspectRatio="none">
+          <path d="M0,305 C90,250 140,260 220,200 C320,110 370,315 500,260 C650,190 710,230 830,150 C970,68 1060,142 1220,86" fill="none" stroke="#f0445f" stroke-width="8" stroke-linecap="round" />
+        </svg>
+        <div class="annotation" style="left: 252px; top: 222px">白色区：收缩窗口</div>
+        <div class="annotation" style="left: 252px; top: 548px">填充区：扩展窗口</div>
+        <div class="arrow" style="left: 1000px; top: 536px; width: 260px"></div>
+      </div>
+
+      <div id="scene-6" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">体验调优</span></div>
+          <h2>边界反馈不再移动整张图，而是显示边缘阻尼</h2>
+          <p class="lead">拖到头时，右侧出现灰色抛物线区域。用户知道已经到边界，但图表本体仍保持稳定。</p>
+        </div>
+        <div class="chart-shell" style="height: 520px">
+          <div class="rebound right"></div>
+          <div class="mock-chart" style="top: 74px; bottom: 72px">
+            <span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span><span class="grid-line"></span>
+            <svg class="chart-svg" viewBox="0 0 1600 360" preserveAspectRatio="none">
+              <path class="chart-fill" d="M0,245 C150,230 180,120 260,145 C390,190 470,220 560,150 C700,50 770,190 880,135 C1000,80 1080,160 1180,88 C1300,58 1440,110 1600,60 L1600,360 L0,360 Z" />
+              <path class="chart-line" d="M0,245 C150,230 180,120 260,145 C390,190 470,220 560,150 C700,50 770,190 880,135 C1000,80 1080,160 1180,88 C1300,58 1440,110 1600,60" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div id="scene-7" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">问题定位</span></div>
+          <h2>拖拽抖动来自重新分桶和 smooth 曲线</h2>
+        </div>
+        <div class="jitter-row">
+          <div class="jitter-card"><img src="./assets/drag-jitter-1.png" alt="拖拽抖动截图一" /></div>
+          <div class="jitter-card"><img src="./assets/drag-jitter-2.png" alt="拖拽抖动截图二" /></div>
+        </div>
+        <div class="annotation" style="left: 542px; top: 804px">修复：拖拽中使用 raw samples，并关闭 smooth</div>
+      </div>
+
+      <div id="scene-8" class="scene">
+        <div class="page">
+          <div class="topline"><span class="dot"></span><span class="eyebrow">最终交付</span></div>
+          <h2>把一次对话式制作沉淀成可复现路径</h2>
+        </div>
+        <div class="checklist">
+          <div class="check"><em>1</em><strong>页面 Demo</strong><span>`/topics/echarts` 展示双 grid 行情图、tooltip、范围切换和拖拽。</span></div>
+          <div class="check"><em>2</em><strong>模型测试</strong><span>覆盖窗口扩展、收缩、命中检测、边界回弹和格式化。</span></div>
+          <div class="check"><em>3</em><strong>组件测试</strong><span>mock ECharts，验证 option、事件和视觉配置。</span></div>
+          <div class="check"><em>4</em><strong>中文指引</strong><span>记录关键判断节点，让读者可以按阶段复刻。</span></div>
+        </div>
+      </div>
+
+      <audio id="narration" data-start="0" data-duration="auto" data-track-index="20" src="./narration.wav" data-volume="1"></audio>
+
+      <div class="caption" data-layout-allow-occlusion>
+        <div id="cg-0" class="caption-group">这次分享，用一个 ECharts 行情图 Demo，复盘 vibe-coding 怎么处理复杂交互。</div>
+        <div id="cg-1" class="caption-group">我们不是只做一张能看的图，而是把需求、误解、修正、测试和复现指引串起来。</div>
+        <div id="cg-2" class="caption-group">起点是一张富途风格行情页：时间在 x 轴，价格在 y 轴，hover 要看到交易信息。</div>
+        <div id="cg-3" class="caption-group">技术选型很克制：React 加 Vite，图表用 ECharts，数据先用确定性模拟。</div>
+        <div id="cg-4" class="caption-group">第一版完成了折线、成交量、范围切换和 tooltip。但真正的难点，是拖拽窗口。</div>
+        <div id="cg-5" class="caption-group">最开始我把拖拽做成固定窗口平移。用户指出，这不是要滑走终点。</div>
+        <div id="cg-6" class="caption-group">正确模型是：图表宽度不变，x 轴范围变长，视觉上发生压缩。</div>
+        <div id="cg-7" class="caption-group">曲线下方的面积区负责扩展窗口，曲线上方白色区域负责收回窗口。</div>
+        <div id="cg-8" class="caption-group">边界反馈也调整过：整张图表不动，只在边缘显示阻尼提示。</div>
+        <div id="cg-9" class="caption-group">拖拽抖动来自重新分桶和 smooth 曲线，修复方式是直接使用 raw samples。</div>
+        <div id="cg-10" class="caption-group">最后整理视觉：y 轴标注、整体留白，以及红色到白色的面积渐变。</div>
+        <div id="cg-11" class="caption-group">最终产物包括页面、测试和中文复现指引，可以继续扩展到下一个 topic。</div>
+      </div>
+      <div id="wipe-a" class="wipe"></div>
+      <div id="wipe-b" class="wipe"></div>
+    </div>
+
+    <script>
+      gsap.config({ nullTargetWarn: false });
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+      var scenes = ["#scene-1", "#scene-2", "#scene-3", "#scene-4", "#scene-5", "#scene-6", "#scene-7", "#scene-8"];
+      var starts = [0, 10.5, 21.5, 32.5, 43.5, 54.5, 65.5, 76.5];
+
+      function enterScene(selector, t) {
+        tl.from(selector + " .topline", { y: 28, opacity: 0, duration: 0.55, ease: "power3.out" }, t + 0.22);
+        tl.from(selector + " h1, " + selector + " h2", { y: 38, opacity: 0, duration: 0.7, ease: "power3.out" }, t + 0.36);
+        tl.from(selector + " .lead", { y: 24, opacity: 0, duration: 0.6, ease: "power3.out" }, t + 0.58);
+        tl.from(selector + " .pill, " + selector + " .step, " + selector + " .panel, " + selector + " .chart-shell, " + selector + " .window-demo, " + selector + " .drag-zone, " + selector + " .white-zone, " + selector + " .jitter-card, " + selector + " .check", {
+          y: 36,
+          opacity: 0,
+          duration: 0.65,
+          stagger: 0.08,
+          ease: "power3.out",
+        }, t + 0.74);
+        tl.from(selector + " .annotation, " + selector + " .arrow, " + selector + " .rebound", {
+          scale: 0.92,
+          opacity: 0,
+          duration: 0.45,
+          stagger: 0.08,
+          ease: "power3.out",
+        }, t + 1.2);
+      }
+
+      function blockTransition(oldScene, newScene, t) {
+        tl.set("#wipe-a", { x: -1920 }, t - 0.01);
+        tl.set("#wipe-b", { x: -1920 }, t - 0.01);
+        tl.to("#wipe-a", { x: 0, duration: 0.25, ease: "power3.inOut" }, t);
+        tl.to("#wipe-b", { x: 0, duration: 0.25, ease: "power3.inOut" }, t + 0.06);
+        tl.set(oldScene, { opacity: 0 }, t + 0.2);
+        tl.set(newScene, { opacity: 1 }, t + 0.2);
+        tl.to("#wipe-a", { x: 1920, duration: 0.25, ease: "power3.inOut" }, t + 0.28);
+        tl.to("#wipe-b", { x: 1920, duration: 0.25, ease: "power3.inOut" }, t + 0.34);
+      }
+
+      for (var i = 0; i < scenes.length; i++) {
+        enterScene(scenes[i], starts[i]);
+        if (i > 0) {
+          blockTransition(scenes[i - 1], scenes[i], starts[i] - 0.58);
+        }
+      }
+
+      tl.fromTo(".chart-line", { opacity: 0, scaleX: 0.92, transformOrigin: "left center" }, { opacity: 1, scaleX: 1, duration: 1, ease: "power2.out" }, 1.4);
+      tl.from(".volume-bars i", { scaleY: 0, transformOrigin: "bottom", stagger: 0.012, duration: 0.45, ease: "power2.out" }, 1.75);
+      tl.fromTo("#scene-4 .window.new", { scaleX: 0.78, transformOrigin: "right center" }, { scaleX: 1, duration: 1.2, ease: "power2.inOut" }, 35.2);
+      tl.fromTo("#scene-5 .drag-zone", { opacity: 0.22 }, { opacity: 1, duration: 0.7, repeat: 2, yoyo: true, ease: "sine.inOut" }, 47.1);
+      tl.fromTo("#scene-5 .white-zone", { opacity: 0.25 }, { opacity: 1, duration: 0.7, repeat: 2, yoyo: true, ease: "sine.inOut" }, 49.6);
+      tl.fromTo("#scene-6 .rebound", { scaleX: 0.2, opacity: 0, transformOrigin: "right center" }, { scaleX: 1, opacity: 1, duration: 0.62, repeat: 3, yoyo: true, ease: "sine.inOut" }, 58.2);
+
+      var captionGroups = [
+        { id: "cg-0", start: 0.6, end: 6.0 },
+        { id: "cg-1", start: 6.1, end: 11.0 },
+        { id: "cg-2", start: 11.3, end: 18.8 },
+        { id: "cg-3", start: 22.2, end: 30.0 },
+        { id: "cg-4", start: 32.8, end: 39.5 },
+        { id: "cg-5", start: 39.8, end: 46.0 },
+        { id: "cg-6", start: 46.2, end: 53.2 },
+        { id: "cg-7", start: 53.4, end: 60.2 },
+        { id: "cg-8", start: 60.4, end: 66.2 },
+        { id: "cg-9", start: 66.5, end: 74.8 },
+        { id: "cg-10", start: 75.0, end: 81.2 },
+        { id: "cg-11", start: 81.4, end: 97.4 },
+      ];
+
+      captionGroups.forEach(function (group) {
+        var selector = "#" + group.id;
+        tl.set(selector, { visibility: "visible" }, group.start);
+        tl.fromTo(selector, { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.22, ease: "power2.out", overwrite: "auto" }, group.start);
+        tl.to(selector, { opacity: 0, scale: 0.98, duration: 0.14, ease: "power2.in", overwrite: "auto" }, group.end - 0.14);
+        tl.set(selector, { opacity: 0, visibility: "hidden" }, group.end);
+      });
+
+      captionGroups.forEach(function (group) {
+        var el = document.getElementById(group.id);
+        if (!el) return;
+        tl.seek(group.end + 0.01);
+        var computed = window.getComputedStyle(el);
+        if (computed.opacity !== "0" && computed.visibility !== "hidden") {
+          console.warn("[caption-lint] group " + group.id + " still visible after exit");
+        }
+      });
+      tl.seek(0);
+
+      window.__timelines["echarts-vibecoding-guide"] = tl;
+    </script>
+  </body>
+</html>

@@ -13,6 +13,11 @@ dist-ssr
 *.local
 .superpowers/
 
+# HyperFrames generated media
+videos/**/renders/
+videos/**/*.wav
+videos/**/*.aiff
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
