@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
+    "model:action6": "node scripts/generate-action6-inspired-glb.mjs",
     "preview": "vite preview",
     "video:preview:echarts": "npx hyperframes preview videos/echarts-vibecoding-guide --port 3017",
     "video:render:echarts": "npx hyperframes render videos/echarts-vibecoding-guide --output videos/echarts-vibecoding-guide/renders/echarts-vibecoding-guide-voiceover.mp4 --quality standard --fps 30",

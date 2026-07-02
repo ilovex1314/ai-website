@@ -1,0 +1,123 @@
+{
+  "product": {
+    "id": "action-6-inspired",
+    "name": "Action 6 Inspired Original Model",
+    "tagline": "Interactive 3D product showcase model",
+    "description": "Original action-camera model derived from public product facts and category-level visual references.",
+    "disclaimer": "Not an official DJI 3D asset. No DJI logo, official UI, CAD data, or exact industrial design is used."
+  },
+  "scene": {
+    "provider": "spline",
+    "embedMode": "react-spline",
+    "sceneUrl": "/models/action-6-inspired/scene.splinecode",
+    "localModelUrl": "/models/action-6-inspired/local-model.json",
+    "sourceAsset": {
+      "format": "glb",
+      "url": "/models/action-6-inspired/action-6-inspired-study.glb",
+      "purpose": "Original teaching model for importing into Spline. Publish or export from Spline to obtain scene.splinecode."
+    }
+  },
+  "model": {
+    "dimensionsMm": {
+      "width": 72.8,
+      "height": 47.2,
+      "depth": 33.1
+    },
+    "watermark": "ORIGINAL DEMO MODEL",
+    "parts": [
+      {
+        "id": "body",
+        "label": "Protective camera body",
+        "kind": "body",
+        "material": "dark matte composite",
+        "position": [0, 0, 0],
+        "size": [72.8, 47.2, 33.1],
+        "radius": 7.4
+      },
+      {
+        "id": "lens",
+        "label": "Variable-aperture lens module",
+        "kind": "lens",
+        "material": "teal anodized ring and coated dark glass",
+        "position": [-18, -1, 18],
+        "size": [28, 28, 10],
+        "radius": 14
+      },
+      {
+        "id": "front-screen",
+        "label": "Front preview screen",
+        "kind": "screen",
+        "material": "black touch glass",
+        "position": [18, 0, 19],
+        "size": [22, 18, 2],
+        "text": "DEMO CAM"
+      },
+      {
+        "id": "rear-screen",
+        "label": "Rear touch screen",
+        "kind": "screen",
+        "material": "rear black glass",
+        "position": [2, 0, -18],
+        "size": [46, 31, 2],
+        "rotation": [0, 180, 0],
+        "text": "155 FOV"
+      },
+      {
+        "id": "top-button",
+        "label": "Record button",
+        "kind": "button",
+        "material": "orange rubber",
+        "position": [8, -25, 11],
+        "size": [22, 4, 8]
+      },
+      {
+        "id": "side-door",
+        "label": "Side port door",
+        "kind": "port",
+        "material": "sealed side cover",
+        "position": [38, 2, 0],
+        "size": [4, 24, 18]
+      },
+      {
+        "id": "mount",
+        "label": "Original quick-release mount",
+        "kind": "mount",
+        "material": "abstract V rail",
+        "position": [6, 29, 4],
+        "size": [32, 10, 18]
+      }
+    ]
+  },
+  "hotspots": [
+    {
+      "id": "lens-hotspot",
+      "partId": "lens",
+      "label": "Variable-aperture lens module",
+      "specs": ["f/2.0-f/4.0", "155 degree FOV", "1/1.1 inch sensor reference"]
+    },
+    {
+      "id": "front-screen-hotspot",
+      "partId": "front-screen",
+      "label": "Front preview screen",
+      "specs": ["1.46 inch front touch screen", "342 x 342 resolution reference", "331 ppi reference"]
+    },
+    {
+      "id": "body-hotspot",
+      "partId": "body",
+      "label": "Protective body",
+      "specs": ["72.8 x 47.2 x 33.1 mm reference", "149 g reference", "20 m camera / 60 m case waterproof reference"]
+    },
+    {
+      "id": "mount-hotspot",
+      "partId": "mount",
+      "label": "Original quick-release mount",
+      "specs": ["Abstract accessory interface", "Non-official V rail design"]
+    }
+  ],
+  "guardrails": [
+    "No DJI logo.",
+    "No exact official CAD dimensions beyond public bounding specs.",
+    "No copied product UI.",
+    "Visible original demo watermark."
+  ]
+}
