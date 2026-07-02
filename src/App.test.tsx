@@ -52,4 +52,16 @@ describe('App', () => {
     expect(screen.getByText(/拖拽旋转，hover 部件查看详情/)).toBeInTheDocument()
     expect(screen.getByLabelText(/热点：可变光圈镜头模组/)).toBeInTheDocument()
   })
+
+  it('renders the Three.js modeler from the URL slug', () => {
+    window.history.pushState({}, '', '/topics/threejs')
+
+    render(<App />)
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: /Three\.js 轻量 3D 建模实验室/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /添加立方体/ })).toBeInTheDocument()
+    expect(screen.getByText(/可持久化数据结构/)).toBeInTheDocument()
+  })
 })

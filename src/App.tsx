@@ -1,6 +1,7 @@
 import { getTopicBySlug, topics } from './data/topics'
 import { EchartsMarketDemo } from './features/market-chart/EchartsMarketDemo'
 import { SplineProductShowcase } from './features/spline-showcase/SplineProductShowcase'
+import { ThreeModelerPage } from './features/threejs-modeler/ThreeModelerPage'
 import './App.css'
 
 function getCurrentTopicSlug(pathname: string) {
@@ -45,6 +46,10 @@ function TopicPage({ slug }: { slug: string }) {
 
   if (slug === 'spline') {
     return <SplineProductShowcase />
+  }
+
+  if (slug === 'threejs') {
+    return <ThreeModelerPage />
   }
 
   const topic = getTopicBySlug(slug)

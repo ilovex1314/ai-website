@@ -1,0 +1,581 @@
+.three-modeler-page {
+  --surface-strong: rgba(8, 15, 29, 0.88);
+  --surface-soft: rgba(15, 23, 42, 0.72);
+  --surface-control: rgba(15, 23, 42, 0.82);
+  --line-soft: rgba(148, 163, 184, 0.18);
+  --line-bright: rgba(125, 211, 252, 0.26);
+  --accent: #22c55e;
+  --accent-soft: rgba(34, 197, 94, 0.16);
+  --accent-blue: #38bdf8;
+  --text-main: #f8fafc;
+  --text-muted: #9fb2c2;
+  --radius-panel: 8px;
+  --radius-control: 7px;
+  min-height: 100vh;
+  background:
+    linear-gradient(rgba(34, 197, 94, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(135deg, #020617 0%, #07111e 44%, #0b1120 100%);
+  background-size: 28px 28px, 28px 28px, auto;
+  color: var(--text-main);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 20px;
+}
+
+.modeler-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  max-width: 1680px;
+  margin: 0 auto 16px;
+}
+
+.modeler-header h1 {
+  margin: 4px 0 8px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Roboto Mono', ui-monospace, monospace;
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  letter-spacing: 0;
+}
+
+.modeler-header p {
+  color: #a7b7c7;
+}
+
+.modeler-workspace {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) 370px;
+  gap: 14px;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+.modeler-toolbar,
+.inspector-panel,
+.preview-panel,
+.canvas-shell {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-panel);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.045), transparent 58%),
+    var(--surface-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(248, 250, 252, 0.08),
+    0 18px 60px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.modeler-toolbar,
+.inspector-panel {
+  min-height: 720px;
+}
+
+.modeler-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 16px;
+}
+
+.modeler-toolbar h2,
+.panel-section h2,
+.preview-panel h2 {
+  margin: 0 0 12px;
+  color: #e2f8f0;
+  font-family: 'SF Mono', 'Cascadia Code', 'Roboto Mono', ui-monospace, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.section-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title-row button {
+  min-height: 32px;
+  border: 1px solid rgba(34, 197, 94, 0.42);
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1)),
+    rgba(8, 15, 29, 0.76);
+  color: #bbf7d0;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(240, 253, 244, 0.12);
+}
+
+.tool-button-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.tool-button-grid button,
+.asset-save-actions button,
+.scene-button-row button,
+.scene-save-actions button,
+.saved-scene-item button,
+.segmented-control button,
+.reset-button,
+.danger-button,
+.tree-item,
+.saved-model-actions button {
+  min-height: 38px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(34, 197, 94, 0.035)),
+    var(--surface-control);
+  color: #edf6f8;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(248, 250, 252, 0.07),
+    0 6px 20px rgba(0, 0, 0, 0.16);
+  transition:
+    border-color 180ms ease-out,
+    background 180ms ease-out,
+    color 180ms ease-out,
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+
+.tool-button-grid button:hover,
+.asset-save-actions button:hover,
+.scene-button-row button:hover,
+.scene-save-actions button:hover,
+.saved-scene-item button:hover,
+.segmented-control button:hover,
+.tree-item:hover,
+.saved-model-actions button:hover,
+.section-title-row button:hover {
+  border-color: var(--accent);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.16), rgba(56, 189, 248, 0.06)),
+    rgba(15, 23, 42, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(34, 197, 94, 0.16),
+    0 0 24px rgba(34, 197, 94, 0.1);
+  transform: translateY(-1px);
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--radius-panel);
+  background: rgba(2, 6, 23, 0.44);
+}
+
+.segmented-control .is-active {
+  border-color: rgba(34, 197, 94, 0.82);
+  background:
+    linear-gradient(180deg, rgba(134, 239, 172, 0.95), var(--accent));
+  color: #020617;
+  box-shadow: 0 8px 22px rgba(34, 197, 94, 0.22);
+}
+
+.reset-button {
+  margin-top: auto;
+}
+
+.viewport-column {
+  display: grid;
+  gap: 14px;
+}
+
+.canvas-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(56, 189, 248, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 197, 94, 0.035) 1px, transparent 1px),
+    #040b13;
+  background-size: 42px 42px, 42px 42px, auto;
+}
+
+.canvas-shell::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: '';
+  border: 1px solid rgba(34, 197, 94, 0.16);
+}
+
+.canvas-shell canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.primary-canvas-shell {
+  height: min(62vh, 760px);
+  min-height: 460px;
+}
+
+.canvas-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.canvas-overlay span {
+  border: 1px solid rgba(34, 197, 94, 0.26);
+  border-radius: var(--radius-control);
+  background: rgba(2, 6, 23, 0.72);
+  color: #d9fff0;
+  padding: 6px 10px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Roboto Mono', ui-monospace, monospace;
+  font-size: 0.76rem;
+}
+
+.preview-row {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(320px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.preview-panel,
+.generation-controls,
+.inspector-panel,
+.panel-section {
+  padding: 16px;
+}
+
+.preview-canvas-shell {
+  height: 320px;
+  min-height: 290px;
+}
+
+.scene-builder-canvas-shell {
+  height: 360px;
+  min-height: 320px;
+}
+
+.scene-builder-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.scene-builder-panel h3 {
+  margin: 0 0 8px;
+  color: #cce6ef;
+  font-size: 0.78rem;
+}
+
+.scene-builder-panel .section-title-row {
+  align-items: start;
+}
+
+.scene-builder-panel .section-title-row p {
+  margin: 4px 0 0;
+  color: #8ea3b5;
+  font-size: 0.82rem;
+}
+
+.asset-save-actions,
+.scene-save-actions,
+.scene-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.asset-save-actions,
+.scene-save-actions {
+  justify-content: flex-end;
+}
+
+.asset-save-actions button,
+.scene-button-row button,
+.scene-save-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.scene-builder-controls {
+  display: grid;
+  gap: 14px;
+}
+
+.generation-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+}
+
+.generation-controls p,
+.muted-copy,
+.inspector-empty p {
+  margin: 0;
+  color: #8ea3b5;
+  font-size: 0.86rem;
+}
+
+.generation-controls p {
+  grid-column: 1 / -1;
+}
+
+.generation-controls label,
+.object-inspector label {
+  display: grid;
+  gap: 6px;
+  color: #b9c9d6;
+  font-size: 0.82rem;
+}
+
+.generation-controls input,
+.generation-controls select,
+.object-inspector input {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.9));
+  color: #edf6f8;
+  padding: 7px 10px;
+  accent-color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(248, 250, 252, 0.05);
+  transition:
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    background 160ms ease-out;
+}
+
+.generation-controls select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #9fd8ca 50%),
+    linear-gradient(135deg, #9fd8ca 50%, transparent 50%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.9));
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%,
+    0 0;
+  background-size:
+    5px 5px,
+    5px 5px,
+    100% 100%;
+  background-repeat: no-repeat;
+  padding-right: 30px;
+}
+
+.generation-controls input[type='range'],
+.object-inspector input[type='range'] {
+  min-height: 30px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.generation-controls input:focus,
+.generation-controls select:focus,
+.object-inspector input:focus,
+button:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.7);
+  outline-offset: 2px;
+}
+
+.generation-controls input:focus,
+.generation-controls select:focus,
+.object-inspector input:focus {
+  border-color: var(--line-bright);
+  box-shadow:
+    inset 0 1px 0 rgba(248, 250, 252, 0.08),
+    0 0 0 3px rgba(56, 189, 248, 0.08);
+}
+
+.inspector-panel {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  overflow: hidden;
+}
+
+.panel-section + .panel-section {
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.scene-tree,
+.saved-model-list,
+.saved-scene-list {
+  display: grid;
+  gap: 8px;
+}
+
+.saved-model-item,
+.saved-scene-item {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.035), transparent),
+    var(--surface-soft);
+}
+
+.tree-item,
+.saved-model-item,
+.saved-scene-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  padding: 9px 10px;
+}
+
+.tree-item.is-selected,
+.saved-model-item.is-active,
+.saved-scene-item.is-active {
+  border-color: #f2c14e;
+  background:
+    linear-gradient(180deg, rgba(242, 193, 78, 0.14), rgba(15, 23, 42, 0.72)),
+    rgba(242, 193, 78, 0.06);
+  box-shadow: inset 3px 0 0 rgba(242, 193, 78, 0.72);
+}
+
+.tree-item small,
+.saved-model-item small,
+.saved-scene-item small {
+  display: block;
+  color: #8ea1aa;
+}
+
+.saved-scene-item button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.76rem;
+}
+
+.saved-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.saved-model-actions button {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 0.76rem;
+}
+
+.object-inspector {
+  display: grid;
+  gap: 14px;
+}
+
+.object-inspector fieldset {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: var(--radius-panel);
+  margin: 0;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.25);
+}
+
+.object-inspector legend {
+  color: #d6e5ed;
+}
+
+.axis-grid,
+.dimension-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.dimension-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.material-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.danger-button {
+  border-color: rgba(255, 143, 112, 0.65);
+  color: #ffd7ca;
+  background:
+    linear-gradient(180deg, rgba(255, 143, 112, 0.1), rgba(15, 23, 42, 0.86)),
+    var(--surface-control);
+}
+
+.principle-panel ol {
+  margin: 0;
+  padding-left: 18px;
+  color: #aebfcb;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.schema-panel pre {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-control);
+  background: rgba(2, 6, 23, 0.34);
+  color: #d7e2e6;
+  font-family: 'SF Mono', 'Cascadia Code', 'Roboto Mono', ui-monospace, monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  .modeler-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .modeler-toolbar,
+  .inspector-panel {
+    min-height: auto;
+  }
+
+  .modeler-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+  }
+}
+
+@media (max-width: 760px) {
+  .three-modeler-page {
+    padding: 14px;
+  }
+
+  .modeler-header {
+    grid-template-columns: 1fr;
+  }
+
+  .modeler-toolbar,
+  .preview-row,
+  .generation-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .primary-canvas-shell {
+    min-height: 380px;
+  }
+}

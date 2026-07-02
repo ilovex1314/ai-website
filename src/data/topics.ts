@@ -55,24 +55,28 @@ export const topics: Topic[] = [
   },
   {
     slug: 'threejs',
-    title: 'Three.js 自定义 3D 场景',
+    title: 'Three.js 轻量 3D 建模实验室',
     tool: 'Three.js',
     category: '3d',
     summary:
-      '当 3D 行为足够具体、适合直接编码时使用 Three.js，比如相机运动、鼠标驱动旋转、着色器、灯光和物体状态变化。',
+      '用原生 Three.js 制作可编辑的基础模型，再把小模型实例化为更大的 3D 视图，帮助初学者理解 Scene、Camera、Renderer、Mesh 和 Controls。',
     demoGoal:
-      '搭建一个可响应鼠标位置的金属立方体和动态渐变场景，可作为 PPT 背景素材，并验证自定义 3D 交互的可控性。',
+      '搭建一个轻量 3D 建模工具，支持添加基础几何体、编辑 transform 和材质，并把当前模型生成网格、环形或层叠的大场景。',
     plannedInteractions: [
-      '渲染全出血 WebGL 画布。',
-      '根据指针移动旋转前景几何体。',
-      '为测试和无障碍场景提供暂停或弱化动效能力。',
+      '添加立方体、球体、圆柱、圆锥和平面。',
+      '选择对象后编辑位置、旋转、缩放、颜色、金属度和粗糙度。',
+      '把当前模型按 grid、radial、stack 三种方式生成更大的 3D 视图。',
     ],
     acceptanceCriteria: [
-      '场景在 canvas 中渲染出非空像素。',
-      '指针移动会改变相机或物体朝向。',
-      '画布在移动端和桌面端尺寸下构图正确。',
+      '页面真实使用 Three.js canvas 渲染主建模区和生成预览区。',
+      '模型数据结构可序列化，后续能平滑接入 localStorage、IndexedDB 或后端。',
+      '代码按数据层、Three.js 生命周期和 React 面板清晰拆分，并补充必要中文注释。',
     ],
-    references: ['https://threejs.org/'],
+    references: [
+      'https://threejs.org/manual/',
+      'https://threejs.org/docs/',
+      'https://threejs.org/examples/',
+    ],
   },
   {
     slug: 'shadertoy',
