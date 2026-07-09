@@ -183,6 +183,27 @@ export const topics: Topic[] = [
     ],
     references: ['https://docs.mapbox.com/mapbox-gl-js/guides/'],
   },
+  {
+    slug: 'remotion-course',
+    title: 'Remotion 课程动画制作台',
+    tool: 'Remotion + Codex',
+    category: 'animation',
+    summary:
+      '搭建课程口播动画库管理台，管理素材、时间轴、教学标注动作、Review 预览和本地 Codex 修改请求。',
+    demoGoal:
+      '创建一个可复用的课程动画制作台，支持动画库增删改查、参数化预览、timeline 绑定和本地 Codex handoff。',
+    plannedInteractions: [
+      '管理 Highlight、Arrow、Circle、Text Card、Lower Third、Slide Zoom 等教学动作。',
+      '选择 timeline segment 后实时 review PPT 背景、口播层、字幕和动画标注。',
+      '为当前动画生成结构化本地 Codex 修改请求，后续接入本地 bridge。',
+    ],
+    acceptanceCriteria: [
+      '页面在 /topics/remotion-course 渲染真实管理台，而不是计划占位页。',
+      '动画库支持新增、编辑、复制、删除、筛选和状态切换。',
+      'Review 预览会随参数和拖动交互更新，并能生成 Codex handoff payload。',
+    ],
+    references: ['https://www.remotion.dev/docs/'],
+  },
 ]
 
 export function getTopicBySlug(slug: string) {

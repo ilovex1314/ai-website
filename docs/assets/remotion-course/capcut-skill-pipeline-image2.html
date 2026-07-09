@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --ink: #172033;
+        --muted: #65748a;
+        --blue: #2563eb;
+        --teal: #0f9f89;
+        --violet: #7257ff;
+        --amber: #d97706;
+        --surface: rgba(255, 255, 255, 0.86);
+        --border: rgba(128, 148, 177, 0.26);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        width: 1800px;
+        height: 1100px;
+        font-family:
+          Inter,
+          "PingFang SC",
+          "Microsoft YaHei",
+          Arial,
+          sans-serif;
+        color: var(--ink);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.58)),
+          url("./capcut-skill-pipeline-image2-bg.png") center / cover no-repeat;
+      }
+
+      .page {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 76px 96px;
+      }
+
+      .title {
+        font-size: 54px;
+        line-height: 1.08;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        margin-top: 16px;
+        width: 1160px;
+        color: #52627a;
+        font-size: 23px;
+        line-height: 1.45;
+        font-weight: 680;
+      }
+
+      .pipeline {
+        position: absolute;
+        left: 94px;
+        top: 208px;
+        width: 1612px;
+        height: 626px;
+        display: grid;
+        grid-template-columns: 0.9fr 1.05fr 1fr;
+        gap: 34px;
+      }
+
+      .lane {
+        position: relative;
+        padding: 34px;
+        border: 1px solid var(--border);
+        border-radius: 34px;
+        background: var(--surface);
+        box-shadow: 0 30px 76px rgba(42, 63, 92, 0.15);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+      }
+
+      .lane::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0));
+        pointer-events: none;
+      }
+
+      .lane > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .lane-title {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        margin-bottom: 26px;
+        font-size: 29px;
+        font-weight: 850;
+      }
+
+      .dot {
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+        box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.13);
+      }
+
+      .input .dot {
+        background: var(--blue);
+      }
+
+      .review .dot {
+        background: var(--teal);
+        box-shadow: 0 0 0 8px rgba(15, 159, 137, 0.13);
+      }
+
+      .deliver .dot {
+        background: var(--violet);
+        box-shadow: 0 0 0 8px rgba(114, 87, 255, 0.13);
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .card {
+        min-height: 86px;
+        padding: 18px 20px;
+        border: 1px solid rgba(133, 153, 184, 0.23);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 16px 34px rgba(42, 63, 92, 0.1);
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        line-height: 1.15;
+        font-weight: 850;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.35;
+        font-weight: 680;
+      }
+
+      .hero-card {
+        min-height: 150px;
+        padding: 28px;
+        border-radius: 26px;
+        color: white;
+        background: linear-gradient(135deg, #2563eb, #0f9f89);
+        box-shadow: 0 22px 54px rgba(37, 99, 235, 0.24);
+      }
+
+      .hero-card h3 {
+        margin: 0 0 10px;
+        font-size: 31px;
+        line-height: 1.12;
+        font-weight: 900;
+      }
+
+      .hero-card p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 18px;
+        line-height: 1.45;
+        font-weight: 700;
+      }
+
+      .review-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .mini {
+        min-height: 76px;
+        padding: 17px 18px;
+        border-radius: 18px;
+        background: rgba(240, 253, 250, 0.9);
+        border: 1px solid rgba(15, 159, 137, 0.2);
+        color: #114b5f;
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 780;
+      }
+
+      .deliver .card:nth-child(2) {
+        border-color: rgba(217, 119, 6, 0.24);
+        background: rgba(255, 251, 235, 0.95);
+      }
+
+      .deliver .card:nth-child(3) {
+        border-color: rgba(114, 87, 255, 0.22);
+        background: rgba(245, 243, 255, 0.95);
+      }
+
+      .arrow {
+        position: absolute;
+        top: 488px;
+        width: 54px;
+        height: 32px;
+        z-index: 3;
+      }
+
+      .arrow.left {
+        left: 596px;
+      }
+
+      .arrow.right {
+        right: 594px;
+      }
+
+      .arrow::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 13px;
+        width: 38px;
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(80, 96, 123, 0.62);
+      }
+
+      .arrow::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 4px;
+        width: 22px;
+        height: 22px;
+        clip-path: polygon(0 0, 100% 50%, 0 100%);
+        background: rgba(80, 96, 123, 0.62);
+      }
+
+      .footer {
+        position: absolute;
+        left: 94px;
+        right: 94px;
+        bottom: 72px;
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 28px;
+      }
+
+      .footer-card {
+        padding: 28px 34px;
+        border: 1px solid rgba(128, 148, 177, 0.24);
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 22px 58px rgba(42, 63, 92, 0.13);
+      }
+
+      .footer-card h3 {
+        margin: 0 0 10px;
+        font-size: 28px;
+        line-height: 1.12;
+        font-weight: 860;
+      }
+
+      .footer-card p {
+        margin: 0;
+        color: #53647b;
+        font-size: 19px;
+        line-height: 1.45;
+        font-weight: 680;
+      }
+
+      .loop {
+        background: linear-gradient(135deg, rgba(236, 253, 245, 0.92), rgba(245, 243, 255, 0.88));
+      }
+
+      .loop h3 {
+        color: #0f766e;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section>
+        <div class="title">剪映/CapCut 后期协作 + Codex 自动生成链路</div>
+        <div class="subtitle">项目内工具先生成可验证的 timeline 与动作建议，管理台确认后再输出给 Remotion 和本地剪辑软件。</div>
+      </section>
+
+      <section class="pipeline">
+        <article class="lane input">
+          <div class="lane-title"><span class="dot"></span>输入素材</div>
+          <div class="stack">
+            <div class="card">
+              <h3>素材目录</h3>
+              <p>口播视频、PPT 图片、参考封面、品牌样式</p>
+            </div>
+            <div class="card">
+              <h3>讲稿与 captions</h3>
+              <p>逐句字幕、章节信息、重点句子</p>
+            </div>
+            <div class="card">
+              <h3>课程风格与重点</h3>
+              <p>平台规格、节奏、教学标注偏好</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="lane review">
+          <div class="lane-title"><span class="dot"></span>自动生成与确认</div>
+          <div class="hero-card">
+            <h3>Codex 自动化工具</h3>
+            <p>输出 timeline 草稿、动作建议、字幕映射和素材缺失报告。</p>
+          </div>
+          <div class="review-grid">
+            <div class="mini">Timeline JSON/TS</div>
+            <div class="mini">Annotations 建议</div>
+            <div class="mini">素材缺失报告</div>
+            <div class="mini">管理台人工确认</div>
+          </div>
+        </article>
+
+        <article class="lane deliver">
+          <div class="lane-title"><span class="dot"></span>输出与后期</div>
+          <div class="stack">
+            <div class="card">
+              <h3>Remotion 渲染</h3>
+              <p>主视频、透明覆盖层、still frame 验证</p>
+            </div>
+            <div class="card">
+              <h3>剪映/CapCut 交付包</h3>
+              <p>Master MP4、Overlay 层、SRT/TXT 字幕</p>
+            </div>
+            <div class="card">
+              <h3>editing-guide.md</h3>
+              <p>轨道顺序、导入步骤、人工复核项</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <div class="arrow left"></div>
+      <div class="arrow right"></div>
+
+      <section class="footer">
+        <article class="footer-card">
+          <h3>第一版形态</h3>
+          <p>不直接注册全局 skill，先在项目内沉淀 tools/course-video-timeline/，包含 schema、prompt、examples、validation script 和使用手册。</p>
+        </article>
+        <article class="footer-card loop">
+          <h3>闭环原则</h3>
+          <p>人工修正后的好结果，会回流成下一次 Codex 自动生成 timeline 和动作建议的 few-shot 示例。</p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

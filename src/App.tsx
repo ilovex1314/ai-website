@@ -1,12 +1,14 @@
 import { getTopicBySlug, topics } from './data/topics'
 import { EchartsMarketDemo } from './features/market-chart/EchartsMarketDemo'
+import { CourseActionLibraryStudio } from './features/remotion-course-workbench/CourseActionLibraryStudio'
+import { RemotionCourseWorkbench } from './features/remotion-course-workbench/RemotionCourseWorkbench'
 import { SplineProductShowcase } from './features/spline-showcase/SplineProductShowcase'
 import { ThreeModelerPage } from './features/threejs-modeler/ThreeModelerPage'
 import './App.css'
 
-function getCurrentTopicSlug(pathname: string) {
-  const match = pathname.match(/^\/topics\/([^/]+)$/)
-  return match?.[1]
+function getCurrentTopicRoute(pathname: string) {
+  const match = pathname.match(/^\/topics\/([^/]+)(?:\/([^/]+))?$/)
+  return match ? { slug: match[1], child: match[2] } : undefined
 }
 
 function HomePage() {
@@ -39,7 +41,7 @@ function HomePage() {
   )
 }
 
-function TopicPage({ slug }: { slug: string }) {
+function TopicPage({ slug, child }: { slug: string; child?: string }) {
   if (slug === 'echarts') {
     return <EchartsMarketDemo />
   }
@@ -50,6 +52,14 @@ function TopicPage({ slug }: { slug: string }) {
 
   if (slug === 'threejs') {
     return <ThreeModelerPage />
+  }
+
+  if (slug === 'remotion-course' && child === 'actions') {
+    return <CourseActionLibraryStudio />
+  }
+
+  if (slug === 'remotion-course') {
+    return <RemotionCourseWorkbench />
   }
 
   const topic = getTopicBySlug(slug)
@@ -103,8 +113,8 @@ function TopicPage({ slug }: { slug: string }) {
 }
 
 function App() {
-  const slug = getCurrentTopicSlug(window.location.pathname)
-  return slug ? <TopicPage slug={slug} /> : <HomePage />
+  const topicRoute = getCurrentTopicRoute(window.location.pathname)
+  return topicRoute ? <TopicPage slug={topicRoute.slug} child={topicRoute.child} /> : <HomePage />
 }
 
 export default App

@@ -1,0 +1,17 @@
+flowchart LR
+  A["素材目录"] --> B["Codex 自动化工具"]
+  C["讲稿或 captions"] --> B
+  D["课程风格与重点"] --> B
+  B --> E["Timeline JSON/TS"]
+  B --> F["Annotations 建议"]
+  B --> G["素材缺失报告"]
+  E --> H["管理台人工确认"]
+  F --> H
+  H --> I["Remotion 渲染"]
+  I --> J["Master MP4"]
+  I --> K["Overlay 层"]
+  H --> L["SRT/TXT 字幕"]
+  J --> M["剪映 CapCut"]
+  K --> M
+  L --> M
+  N["editing-guide.md"] --> M

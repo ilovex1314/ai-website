@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 980" width="1440" height="980">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7fee7"/>
+      <stop offset="100%" stop-color="#eff6ff"/>
+    </linearGradient>
+    <style>
+      .title{font:700 34px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#0f172a}
+      .sub{font:500 17px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#475569}
+      .step{font:700 20px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#0f172a}
+      .desc{font:500 14px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#64748b}
+      .phase{font:800 15px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:white}
+      .card{fill:white;stroke:#dbeafe;stroke-width:2;rx:22}
+      .lane{fill:white;stroke:#bfdbfe;stroke-width:2;rx:30;opacity:.76}
+      .line{fill:none;stroke:#64748b;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+      .loop{fill:none;stroke:#14b8a6;stroke-width:5;stroke-dasharray:10 10;stroke-linecap:round}
+    </style>
+    <marker id="arr" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#14b8a6"/>
+    </marker>
+  </defs>
+  <rect width="1440" height="980" fill="url(#bg2)"/>
+  <text x="70" y="70" class="title">系统迭代与工作流设计</text>
+  <text x="70" y="106" class="sub">人工确认不只是审核，它会反向沉淀成下一次 Codex 自动生成 timeline 的样例。</text>
+
+  <rect x="70" y="160" width="1300" height="160" class="lane"/>
+  <rect x="95" y="188" width="130" height="34" rx="17" fill="#2563eb"/>
+  <text x="118" y="211" class="phase">素材入口</text>
+  <rect x="280" y="205" width="250" height="78" class="card"/>
+  <text x="312" y="238" class="step">导入口播视频</text>
+  <text x="312" y="265" class="desc">speaker.mp4 / 镜头信息</text>
+  <rect x="610" y="205" width="250" height="78" class="card"/>
+  <text x="642" y="238" class="step">导入 PPT 与字幕</text>
+  <text x="642" y="265" class="desc">slides / captions / script</text>
+  <path class="line" marker-end="url(#arr)" d="M530 244 L610 244"/>
+
+  <rect x="70" y="370" width="1300" height="170" class="lane"/>
+  <rect x="95" y="398" width="130" height="34" rx="17" fill="#0f766e"/>
+  <text x="118" y="421" class="phase">管理台</text>
+  <rect x="280" y="417" width="250" height="78" class="card"/>
+  <text x="312" y="450" class="step">校验素材</text>
+  <text x="312" y="477" class="desc">缺页 / 时序 / 格式</text>
+  <rect x="610" y="417" width="250" height="78" class="card"/>
+  <text x="642" y="450" class="step">生成时间轴草稿</text>
+  <text x="642" y="477" class="desc">segments + actions</text>
+  <rect x="940" y="417" width="250" height="78" class="card"/>
+  <text x="972" y="450" class="step">人工微调</text>
+  <text x="972" y="477" class="desc">节奏 / 动作 / 字幕</text>
+  <path class="line" marker-end="url(#arr)" d="M530 456 L610 456"/>
+  <path class="line" marker-end="url(#arr)" d="M860 456 L940 456"/>
+
+  <rect x="70" y="590" width="1300" height="220" class="lane"/>
+  <rect x="95" y="618" width="130" height="34" rx="17" fill="#b45309"/>
+  <text x="118" y="641" class="phase">输出验证</text>
+  <rect x="260" y="662" width="220" height="78" class="card"/>
+  <text x="292" y="695" class="step">帧预览验证</text>
+  <text x="292" y="722" class="desc">HTML preview / still</text>
+  <rect x="560" y="635" width="220" height="78" class="card"/>
+  <text x="592" y="668" class="step">Remotion 输出</text>
+  <text x="592" y="695" class="desc">still / mp4 / overlays</text>
+  <rect x="560" y="735" width="220" height="78" class="card"/>
+  <text x="592" y="768" class="step">剪映交付包</text>
+  <text x="592" y="795" class="desc">SRT / PNG / guide</text>
+  <rect x="880" y="662" width="250" height="78" class="card"/>
+  <text x="912" y="695" class="step">沉淀 Skill 示例</text>
+  <text x="912" y="722" class="desc">few-shot / schema / outputs</text>
+  <path class="line" marker-end="url(#arr)" d="M480 701 L560 674"/>
+  <path class="line" marker-end="url(#arr)" d="M480 701 L560 774"/>
+  <path class="line" marker-end="url(#arr)" d="M780 674 L880 701"/>
+  <path class="line" marker-end="url(#arr)" d="M780 774 L880 701"/>
+
+  <path class="line" marker-end="url(#arr)" d="M735 283 C735 330 405 355 405 417"/>
+  <path class="line" marker-end="url(#arr)" d="M1065 495 C1065 560 370 590 370 662"/>
+  <path class="loop" marker-end="url(#arrGreen)" d="M1130 701 C1290 780 1270 900 850 900 C520 900 470 560 940 493"/>
+  <text x="665" y="930" class="sub">闭环：人工修改后的好结果成为下一次自动生成的参考。</text>
+</svg>

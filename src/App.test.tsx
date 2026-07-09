@@ -14,7 +14,7 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { name: /AI 网站案例实验室/i }),
     ).toBeInTheDocument()
-    expect(screen.getAllByRole('article')).toHaveLength(8)
+    expect(screen.getAllByRole('article')).toHaveLength(9)
     expect(screen.getByRole('link', { name: /ECharts 互动图表/i })).toHaveAttribute(
       'href',
       '/topics/echarts',
@@ -63,5 +63,27 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /添加立方体/ })).toBeInTheDocument()
     expect(screen.getByText(/可持久化数据结构/)).toBeInTheDocument()
+  })
+
+  it('renders the Remotion course workbench from the URL slug', () => {
+    window.history.pushState({}, '', '/topics/remotion-course')
+
+    render(<App />)
+
+    expect(screen.getByRole('heading', { level: 1, name: /Studio Console/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /Action Library Manager/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /Local Codex/ })).toBeInTheDocument()
+  })
+
+  it('renders the Remotion action library subpage', () => {
+    window.history.pushState({}, '', '/topics/remotion-course/actions')
+
+    render(<App />)
+
+    expect(screen.getByRole('heading', { level: 1, name: /Action Library Studio/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /复杂动画意图/ })).toBeInTheDocument()
+    expect(screen.getByText(/13 actions/)).toBeInTheDocument()
+    expect(screen.getByText(/LLM-assisted/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Codex 负责理解意图和生成实现/).length).toBeGreaterThan(0)
   })
 })

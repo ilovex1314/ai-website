@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { topics } from './topics'
 
 describe('topics plan data', () => {
-  it('captures the eight researched vibe-coding demo tracks', () => {
+  it('captures the nine researched vibe-coding demo tracks', () => {
     expect(topics.map((topic) => topic.slug)).toEqual([
       'echarts',
       'spline',
@@ -12,6 +12,7 @@ describe('topics plan data', () => {
       'matterjs',
       'rive',
       'mapbox',
+      'remotion-course',
     ])
   })
 

@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Remotion Course Workbench Design Options</title>
+    <style>
+      :root {
+        color: #0f172a;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #eef2f5;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      .option {
+        min-height: 900px;
+        padding: 28px;
+        background: var(--page-bg);
+      }
+
+      .app-shell {
+        display: grid;
+        min-height: 844px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--surface);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.12);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 56px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--topbar);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        font-weight: 760;
+      }
+
+      .mark {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--accent);
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tool-button,
+      .pill {
+        min-height: 32px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--control);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .tool-button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 14px 10px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .panel-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 760;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .row:last-child {
+        border-bottom: 0;
+      }
+
+      .row strong {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .row span,
+      .small {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .canvas {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.78)),
+          repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(100, 116, 139, 0.11) 40px),
+          repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(100, 116, 139, 0.11) 40px);
+      }
+
+      .slide {
+        position: absolute;
+        inset: 34px 46px 96px;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.86);
+      }
+
+      .slide h2 {
+        max-width: 560px;
+        margin: 18px 0 12px;
+        color: var(--text);
+        font-size: 32px;
+        letter-spacing: 0;
+      }
+
+      .slide p {
+        max-width: 520px;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .highlight {
+        position: absolute;
+        left: 160px;
+        top: 205px;
+        width: 330px;
+        height: 72px;
+        border: 3px solid var(--accent);
+        border-radius: 10px;
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        font-weight: 760;
+      }
+
+      .speaker {
+        position: absolute;
+        right: 34px;
+        bottom: 28px;
+        display: grid;
+        width: 150px;
+        height: 92px;
+        place-items: center;
+        border-radius: 12px;
+        background: var(--speaker);
+        color: #fff;
+        font-weight: 760;
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+
+      .field label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .input {
+        min-height: 36px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--control);
+        color: var(--text);
+        font: inherit;
+        font-size: 13px;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .metric {
+        padding: 12px;
+        border: 1px solid var(--line-soft);
+        border-radius: 10px;
+        background: var(--control);
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--text);
+        font-size: 18px;
+      }
+
+      /* Option A */
+      .option-a {
+        --page-bg: #eef2f5;
+        --surface: #f8fafc;
+        --topbar: #ffffff;
+        --panel: #ffffff;
+        --control: #f8fafc;
+        --line: #d8dee8;
+        --line-soft: #edf1f6;
+        --text: #111827;
+        --muted: #64748b;
+        --accent: #2563eb;
+        --speaker: #0f172a;
+      }
+
+      .studio-layout {
+        display: grid;
+        grid-template-rows: 56px 1fr 170px;
+      }
+
+      .studio-main {
+        display: grid;
+        grid-template-columns: 280px 1fr 320px;
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .studio-canvas {
+        min-height: 590px;
+      }
+
+      .bottom-library {
+        display: grid;
+        grid-template-columns: 220px 1fr 300px;
+        gap: 12px;
+        padding: 0 14px 14px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 14px;
+      }
+
+      .chip {
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--control);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .chip.active {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* Option B */
+      .option-b {
+        --page-bg: #e8edf3;
+        --surface: #f8fafc;
+        --topbar: #111827;
+        --panel: #ffffff;
+        --control: #f8fafc;
+        --line: #d6dee8;
+        --line-soft: #edf1f6;
+        --text: #111827;
+        --muted: #667085;
+        --accent: #0d9488;
+        --speaker: #111827;
+      }
+
+      .option-b .topbar,
+      .option-b .topbar .muted,
+      .option-b .brand {
+        color: #f8fafc;
+      }
+
+      .timeline-layout {
+        display: grid;
+        grid-template-rows: 56px 1fr 230px;
+      }
+
+      .timeline-main {
+        display: grid;
+        grid-template-columns: 260px 1fr 310px;
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .timeline-strip {
+        padding: 14px;
+        border-top: 1px solid #1f2937;
+        background: #111827;
+      }
+
+      .track {
+        display: grid;
+        grid-template-columns: 180px 2fr 1.4fr 1fr;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .track-label {
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 760;
+      }
+
+      .clip {
+        min-height: 42px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .clip.accent {
+        background: #0f766e;
+      }
+
+      .clip.note {
+        background: #334155;
+      }
+
+      /* Option C */
+      .option-c {
+        --page-bg: #f1f5f9;
+        --surface: #ffffff;
+        --topbar: #ffffff;
+        --panel: #ffffff;
+        --control: #f8fafc;
+        --line: #d9e1ea;
+        --line-soft: #edf2f7;
+        --text: #172033;
+        --muted: #64748b;
+        --accent: #0369a1;
+        --speaker: #172033;
+      }
+
+      .library-layout {
+        display: grid;
+        grid-template-rows: 56px 1fr;
+      }
+
+      .library-main {
+        display: grid;
+        grid-template-columns: 230px 1fr 360px;
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .table {
+        padding: 8px;
+      }
+
+      .table-row {
+        display: grid;
+        grid-template-columns: 1.2fr 0.7fr 0.6fr 0.6fr 0.8fr;
+        gap: 12px;
+        align-items: center;
+        min-height: 52px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line-soft);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .table-row.header {
+        min-height: 42px;
+        color: var(--muted);
+        font-weight: 800;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .table-row.selected {
+        border-radius: 8px;
+        background: #eff6ff;
+        color: var(--text);
+      }
+
+      /* Option D */
+      .option-d {
+        --page-bg: #edf2f7;
+        --surface: #f8fafc;
+        --topbar: #ffffff;
+        --panel: #ffffff;
+        --control: #f8fafc;
+        --line: #d7dee8;
+        --line-soft: #edf1f6;
+        --text: #111827;
+        --muted: #64748b;
+        --accent: #7c3aed;
+        --speaker: #111827;
+      }
+
+      .review-layout {
+        display: grid;
+        grid-template-rows: 56px 1fr;
+      }
+
+      .review-main {
+        display: grid;
+        grid-template-columns: 280px 1fr 350px;
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .review-canvas {
+        min-height: 730px;
+      }
+
+      .comment-box {
+        margin: 14px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--control);
+      }
+
+      .comment-box strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text);
+        font-size: 13px;
+      }
+
+      .handoff-code {
+        margin: 14px;
+        min-height: 190px;
+        padding: 14px;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #dbeafe;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="option option-a" id="studio-console">
+      <div class="app-shell studio-layout">
+        <header class="topbar">
+          <div class="brand"><span class="mark"></span> Studio Console / 课程动画制作台</div>
+          <div class="toolbar">
+            <span class="pill">Demo Course</span>
+            <span class="pill">30fps</span>
+            <button class="tool-button">Preview</button>
+            <button class="tool-button primary">Generate Handoff</button>
+          </div>
+        </header>
+        <main class="studio-main">
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Timeline</p><span class="label">2 Segments</span></div>
+            <div class="row"><div><strong>开场与课程目标</strong><span>Slide 1 · 0-120f</span></div><span class="pill">active</span></div>
+            <div class="row"><div><strong>解释核心概念</strong><span>Slide 2 · 120-270f</span></div></div>
+            <div class="panel-header"><p class="panel-title">Assets</p><span class="label">4/5 ready</span></div>
+            <div class="row"><div><strong>speaker.mp4</strong><span>ready</span></div></div>
+            <div class="row"><div><strong>slides/001.png</strong><span>ready</span></div></div>
+            <div class="row"><div><strong>captions.json</strong><span>ready</span></div></div>
+          </aside>
+          <section class="canvas studio-canvas">
+            <div class="slide">
+              <span class="label">Slide 1</span>
+              <h2>开场与课程目标</h2>
+              <p>把口播课程变成可复用的动画模板，先校验重点区域和讲解节奏。</p>
+            </div>
+            <div class="highlight">关键定义</div>
+            <div class="speaker">口播视频</div>
+          </section>
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Inspector</p><span class="label">Highlight</span></div>
+            <div style="padding: 14px">
+              <div class="field"><label>动作名称</label><div class="input">蓝色定义高亮框</div></div>
+              <div class="field"><label>状态</label><div class="input">ready</div></div>
+              <div class="field"><label>位置</label><div class="input">x 16 / y 28 / w 42 / h 18</div></div>
+              <div class="field"><label>Review 意见</label><div class="input">高亮框稍微靠下，避开标题。</div></div>
+            </div>
+          </aside>
+        </main>
+        <section class="bottom-library">
+          <div class="panel"><div class="panel-header"><p class="panel-title">Action Library</p></div><div class="chips"><span class="chip active">高亮框</span><span class="chip">箭头</span><span class="chip">圈注</span><span class="chip">文字卡</span><span class="chip">聚焦</span></div></div>
+          <div class="panel"><div class="panel-header"><p class="panel-title">Selected Action</p><span class="label">v1.0.0</span></div><div class="row"><div><strong>蓝色定义高亮框</strong><span>强调 PPT 中的概念定义、公式或关键区域。</span></div></div></div>
+          <div class="panel"><div class="panel-header"><p class="panel-title">Local Codex</p><span class="label">handoff-only</span></div><div class="row"><div><strong>/Volumes/2TB-NVMe/work/ai-website</strong><span>公网只展示，本地生成结构化修改请求。</span></div></div></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="option option-b" id="timeline-editor">
+      <div class="app-shell timeline-layout">
+        <header class="topbar">
+          <div class="brand"><span class="mark"></span> Timeline Editor / 视频制作台</div>
+          <div class="toolbar"><span class="pill">00:00:04:00</span><button class="tool-button">Still</button><button class="tool-button primary">Render Draft</button></div>
+        </header>
+        <main class="timeline-main">
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Media Bin</p><span class="label">Assets</span></div>
+            <div class="row"><div><strong>speaker.mp4</strong><span>画中画 · 右下角</span></div></div>
+            <div class="row"><div><strong>001.png</strong><span>Slide background</span></div></div>
+            <div class="row"><div><strong>captions.json</strong><span>逐句字幕</span></div></div>
+            <div class="panel-header"><p class="panel-title">Actions</p></div>
+            <div class="chips"><span class="chip active">Highlight</span><span class="chip">Arrow</span><span class="chip">Lower Third</span></div>
+          </aside>
+          <section class="canvas">
+            <div class="slide">
+              <span class="label">Program Monitor</span>
+              <h2>解释核心概念</h2>
+              <p>第二层管理台，让素材、动作和时间轴先被看懂。</p>
+            </div>
+            <div class="highlight">流程节点</div>
+            <div class="speaker">口播</div>
+          </section>
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Effect Controls</p><span class="label">Selected</span></div>
+            <div class="metric-grid">
+              <div class="metric"><span class="small">X</span><strong>21</strong></div>
+              <div class="metric"><span class="small">Y</span><strong>34</strong></div>
+              <div class="metric"><span class="small">Scale</span><strong>1.2</strong></div>
+            </div>
+            <div class="row"><div><strong>入场动画</strong><span>fade + slight move</span></div></div>
+            <div class="row"><div><strong>字幕</strong><span>关键词高亮 · 逐句出现</span></div></div>
+          </aside>
+        </main>
+        <section class="timeline-strip">
+          <div class="track"><div class="track-label">Slides</div><div class="clip accent">001.png · 开场</div><div class="clip">002.png · 核心概念</div><div class="clip">003.png</div></div>
+          <div class="track"><div class="track-label">Speaker</div><div class="clip">speaker.mp4</div><div class="clip">right-bottom</div><div class="clip">fade out</div></div>
+          <div class="track"><div class="track-label">Actions</div><div class="clip note">Lower Third</div><div class="clip accent">Highlight + Arrow</div><div class="clip note">Zoom</div></div>
+          <div class="track"><div class="track-label">Captions</div><div class="clip">今天我们...</div><div class="clip">第二层管理台...</div><div class="clip">总结...</div></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="option option-c" id="library-manager">
+      <div class="app-shell library-layout">
+        <header class="topbar">
+          <div class="brand"><span class="mark"></span> Library Manager / 动作库管理</div>
+          <div class="toolbar"><button class="tool-button">Import</button><button class="tool-button">Validate</button><button class="tool-button primary">New Action</button></div>
+        </header>
+        <main class="library-main">
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Categories</p></div>
+            <div class="row"><div><strong>全部动作</strong><span>6 templates</span></div></div>
+            <div class="row"><div><strong>高亮框</strong><span>1 ready</span></div></div>
+            <div class="row"><div><strong>箭头 / 圈注</strong><span>2 ready</span></div></div>
+            <div class="row"><div><strong>文字卡 / 标题条</strong><span>2 ready</span></div></div>
+            <div class="row"><div><strong>聚焦镜头</strong><span>1 draft</span></div></div>
+          </aside>
+          <section class="panel">
+            <div class="panel-header"><p class="panel-title">Animation Actions</p><span class="label">Versioned</span></div>
+            <div class="table">
+              <div class="table-row header"><span>Name</span><span>Type</span><span>Status</span><span>Version</span><span>Used In</span></div>
+              <div class="table-row selected"><strong>蓝色定义高亮框</strong><span>Highlight</span><span>ready</span><span>1.0.0</span><span>seg-intro</span></div>
+              <div class="table-row"><strong>流程节点箭头</strong><span>Arrow</span><span>ready</span><span>1.0.0</span><span>seg-concept</span></div>
+              <div class="table-row"><strong>红色圈注</strong><span>Circle</span><span>ready</span><span>1.0.0</span><span>library</span></div>
+              <div class="table-row"><strong>重点文字卡片</strong><span>Text Card</span><span>ready</span><span>1.0.0</span><span>seg-concept</span></div>
+              <div class="table-row"><strong>章节标题条</strong><span>Lower Third</span><span>ready</span><span>1.0.0</span><span>seg-intro</span></div>
+              <div class="table-row"><strong>PPT 局部聚焦</strong><span>Zoom</span><span>draft</span><span>1.0.0</span><span>library</span></div>
+            </div>
+          </section>
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Preview & Params</p><span class="label">Highlight</span></div>
+            <div style="height: 300px; margin: 14px" class="canvas">
+              <div class="slide" style="inset: 20px 24px 70px; padding: 18px"><span class="label">Slide 1</span><h2 style="font-size: 22px">课程目标</h2></div>
+              <div class="highlight" style="left: 72px; top: 118px; width: 190px; height: 56px">关键定义</div>
+              <div class="speaker" style="width: 94px; height: 56px">口播</div>
+            </div>
+            <div style="padding: 0 14px 14px">
+              <div class="field"><label>默认时长</label><div class="input">90 frames</div></div>
+              <div class="field"><label>适用场景</label><div class="input">概念定义 / 公式 / 重点区域</div></div>
+            </div>
+          </aside>
+        </main>
+      </div>
+    </section>
+
+    <section class="option option-d" id="review-bay">
+      <div class="app-shell review-layout">
+        <header class="topbar">
+          <div class="brand"><span class="mark"></span> Review Bay / 审片与 Codex 协作</div>
+          <div class="toolbar"><span class="pill">Slide 1 · Highlight</span><button class="tool-button">Compare</button><button class="tool-button primary">Send to Local Codex</button></div>
+        </header>
+        <main class="review-main">
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Context</p><span class="label">Current</span></div>
+            <div class="row"><div><strong>课程片段</strong><span>开场与课程目标 · 0-120f</span></div></div>
+            <div class="row"><div><strong>当前动作</strong><span>蓝色定义高亮框</span></div></div>
+            <div class="row"><div><strong>字幕</strong><span>今天我们把口播课程变成可复用的动画模板。</span></div></div>
+            <div class="panel-header"><p class="panel-title">Issues</p></div>
+            <div class="row"><div><strong>标注遮挡标题</strong><span>建议下移 16px</span></div><span class="pill">open</span></div>
+            <div class="row"><div><strong>字幕可读性</strong><span>关键词高亮稍弱</span></div></div>
+          </aside>
+          <section class="canvas review-canvas">
+            <div class="slide">
+              <span class="label">Review Stage</span>
+              <h2>开场与课程目标</h2>
+              <p>把口播课程变成可复用的动画模板，先由人工 review，再沉淀为自动生成样例。</p>
+            </div>
+            <div class="highlight" style="border-color: #7c3aed; color: #7c3aed">关键定义</div>
+            <div class="speaker">口播</div>
+          </section>
+          <aside class="panel">
+            <div class="panel-header"><p class="panel-title">Codex Handoff</p><span class="label">Local Only</span></div>
+            <div class="comment-box"><strong>Review 意见</strong><span class="small">把高亮框下移，缩短宽度，并生成一个更适合 B 站课程的入场动画。</span></div>
+            <div class="handoff-code">{
+  "environment": "local-only",
+  "projectPath": "/Volumes/2TB-NVMe/work/ai-website",
+  "selectedAction": "highlight-box",
+  "segment": "seg-intro",
+  "request": "adjust params and regenerate preview"
+}</div>
+            <div style="padding: 0 14px 14px"><button class="tool-button primary" style="width: 100%">生成 Codex 修改请求</button></div>
+          </aside>
+        </main>
+      </div>
+    </section>
+  </body>
+</html>

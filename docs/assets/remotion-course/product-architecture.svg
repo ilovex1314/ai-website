@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 820" width="1440" height="820">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#eef5ff"/>
+    </linearGradient>
+    <linearGradient id="hub" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#14b8a6"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#1d4ed8" flood-opacity="0.16"/>
+    </filter>
+    <style>
+      .title{font:700 36px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#0f172a}
+      .subtitle{font:500 18px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#475569}
+      .label{font:700 22px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#0f172a}
+      .small{font:500 15px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#64748b}
+      .white{font:700 24px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:white}
+      .whiteSmall{font:500 15px -apple-system,BlinkMacSystemFont,"Noto Sans SC","Segoe UI",sans-serif;fill:#dbeafe}
+      .card{fill:white;stroke:#dbeafe;stroke-width:2;rx:24;filter:url(#shadow)}
+      .line{fill:none;stroke:#94a3b8;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+      .dash{fill:none;stroke:#38bdf8;stroke-width:4;stroke-dasharray:8 10;stroke-linecap:round}
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <rect width="1440" height="820" fill="url(#bg)"/>
+  <text x="72" y="70" class="title">Remotion 课程动画制作台：全局产品架构</text>
+  <text x="72" y="106" class="subtitle">管理台先稳定数据模型，Remotion、剪映/CapCut、Codex 自动化都围绕同一份 Timeline Package 工作。</text>
+
+  <rect x="70" y="190" width="300" height="390" class="card"/>
+  <text x="110" y="240" class="label">Website 管理台</text>
+  <text x="110" y="275" class="small">第 9 个 topic</text>
+  <rect x="110" y="320" width="220" height="44" rx="14" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="135" y="349" class="small">课程项目模型</text>
+  <rect x="110" y="380" width="220" height="44" rx="14" fill="#f0fdfa" stroke="#99f6e4"/>
+  <text x="135" y="409" class="small">素材状态校验</text>
+  <rect x="110" y="440" width="220" height="44" rx="14" fill="#fefce8" stroke="#fde68a"/>
+  <text x="135" y="469" class="small">时间轴与动作库</text>
+  <rect x="110" y="500" width="220" height="44" rx="14" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="135" y="529" class="small">帧预览与导出入口</text>
+
+  <rect x="535" y="300" width="330" height="170" rx="34" fill="url(#hub)" filter="url(#shadow)"/>
+  <text x="590" y="368" class="white">Timeline Package</text>
+  <text x="586" y="405" class="whiteSmall">segments / actions / captions / assets</text>
+
+  <rect x="1010" y="150" width="310" height="130" class="card"/>
+  <text x="1050" y="202" class="label">Remotion 渲染层</text>
+  <text x="1050" y="236" class="small">Still / MP4 / Overlay</text>
+
+  <rect x="1010" y="340" width="310" height="130" class="card"/>
+  <text x="1050" y="392" class="label">剪映 / CapCut</text>
+  <text x="1050" y="426" class="small">通用后期交付包</text>
+
+  <rect x="1010" y="530" width="310" height="130" class="card"/>
+  <text x="1050" y="582" class="label">Codex 自动化</text>
+  <text x="1050" y="616" class="small">本地插件 / Skill 协议</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M370 385 C440 385, 475 385, 535 385"/>
+  <path class="line" marker-end="url(#arrow)" d="M865 350 C930 290, 955 235, 1010 215"/>
+  <path class="line" marker-end="url(#arrow)" d="M865 390 C925 400, 955 405, 1010 405"/>
+  <path class="dash" marker-end="url(#arrowBlue)" d="M1010 595 C930 595, 900 490, 840 448"/>
+  <path class="dash" marker-end="url(#arrowBlue)" d="M1165 530 C1165 500, 1165 485, 1165 470"/>
+
+  <text x="455" y="360" class="small">统一数据源</text>
+  <text x="900" y="286" class="small">渲染输出</text>
+  <text x="900" y="426" class="small">剪辑交付</text>
+  <text x="870" y="562" class="small">生成候选后回流</text>
+
+  <rect x="92" y="650" width="1256" height="76" rx="24" fill="#0f172a" opacity="0.92"/>
+  <text x="126" y="696" class="whiteSmall">执行原则：先管理台，后渲染层；先项目内工具协议，后正式 Codex Skill；剪映/CapCut 只接收通用素材交付包。</text>
+</svg>

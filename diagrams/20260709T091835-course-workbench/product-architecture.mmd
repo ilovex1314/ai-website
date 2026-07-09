@@ -1,0 +1,14 @@
+flowchart LR
+  A["Website 管理台"] --> B["课程项目模型"]
+  A --> C["素材状态"]
+  A --> D["时间轴编辑"]
+  A --> E["帧预览"]
+  B --> F["Timeline Package"]
+  C --> F
+  D --> F
+  F --> G["Remotion 渲染引擎"]
+  G --> H["Still 预览"]
+  G --> I["课程 MP4"]
+  F --> J["剪映 CapCut 交付包"]
+  K["Codex Skill 或本地插件"] --> F
+  K --> L["使用手册"]

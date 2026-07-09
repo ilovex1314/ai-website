@@ -1,0 +1,14 @@
+flowchart LR
+  A["素材输入"] --> B["课程动画制作台"]
+  B --> C["项目管理"]
+  B --> D["时间轴编辑"]
+  B --> E["动画能力面板"]
+  C --> F["课程项目"]
+  D --> G["Timeline Config"]
+  E --> G
+  G --> H["Remotion 渲染引擎"]
+  H --> I["Studio 预览"]
+  H --> J["Still 验证"]
+  H --> K["MP4 输出"]
+  L["Codex Skill"] --> G
+  A -. "speaker.mp4 / slides / captions" .-> G

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1672px;
+        height: 941px;
+        overflow: hidden;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Noto Sans SC", "PingFang SC",
+          "Segoe UI", sans-serif;
+        color: #0f172a;
+      }
+
+      .canvas {
+        position: relative;
+        width: 1672px;
+        height: 941px;
+        background-image: url("./product-architecture-image2-bg.png");
+        background-size: cover;
+      }
+
+      .title {
+        position: absolute;
+        left: 72px;
+        top: 62px;
+        font-size: 42px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        position: absolute;
+        left: 76px;
+        top: 118px;
+        font-size: 20px;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      .badge {
+        position: absolute;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 18px;
+        font-weight: 800;
+        color: #fff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+      }
+
+      .label {
+        position: absolute;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1.18;
+      }
+
+      .note {
+        position: absolute;
+        font-size: 17px;
+        font-weight: 700;
+        color: #64748b;
+        line-height: 1.35;
+      }
+
+      .small {
+        font-size: 15px;
+      }
+
+      .center {
+        text-align: center;
+      }
+
+      .white {
+        color: white;
+        text-shadow: 0 2px 12px rgba(2, 6, 23, 0.18);
+      }
+
+      .hub-label {
+        position: absolute;
+        left: 730px;
+        top: 392px;
+        width: 250px;
+        padding: 18px 16px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(15, 118, 110, 0.82));
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.26);
+        text-align: center;
+      }
+
+      .pill {
+        position: absolute;
+        padding: 10px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.76);
+        border: 1px solid rgba(148, 163, 184, 0.26);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        color: #334155;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .footer {
+        position: absolute;
+        left: 98px;
+        bottom: 58px;
+        width: 1476px;
+        padding: 18px 28px;
+        border-radius: 24px;
+        background: rgba(15, 23, 42, 0.86);
+        color: #e2e8f0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .asset-1 {
+        left: 70px;
+        top: 304px;
+      }
+
+      .asset-2 {
+        left: 70px;
+        top: 472px;
+      }
+
+      .asset-3 {
+        left: 70px;
+        top: 638px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="canvas">
+      <div class="title">Remotion 课程动画制作台</div>
+      <div class="subtitle">以管理台为中心，统一素材、动作库、Timeline、渲染与剪映交付。</div>
+
+      <div class="pill asset-1">口播视频</div>
+      <div class="pill asset-2">PPT 页面</div>
+      <div class="pill asset-3">字幕 / 讲稿</div>
+
+      <div class="label" style="left: 328px; top: 248px">Website 管理台</div>
+      <div class="note" style="left: 328px; top: 288px">第 9 个 topic<br />项目 · 素材 · 动作库 · 预览</div>
+
+      <div class="hub-label">
+        <div class="label white center" style="position: static; font-size: 31px">
+          Timeline Package
+        </div>
+        <div class="note white center small" style="position: static; margin-top: 10px">
+          segments / actions / captions / assets
+        </div>
+      </div>
+
+      <div class="label" style="left: 1195px; top: 158px">Remotion 渲染层</div>
+      <div class="note" style="left: 1198px; top: 198px">Still · MP4 · Overlay</div>
+
+      <div class="label" style="left: 1195px; top: 430px">剪映 / CapCut 交付包</div>
+      <div class="note" style="left: 1198px; top: 470px">主视频 · 字幕 · 覆盖层 · 剪辑说明</div>
+
+      <div class="label" style="left: 1195px; top: 695px">Codex 自动化工具</div>
+      <div class="note" style="left: 1198px; top: 735px">项目内协议，稳定后升级为 Skill</div>
+
+      <div class="badge" style="left: 535px; top: 512px; background: #2563eb">统一数据源</div>
+      <div class="badge" style="left: 990px; top: 320px; background: #2563eb">渲染输出</div>
+      <div class="badge" style="left: 990px; top: 454px; background: #f59e0b">后期协作</div>
+      <div class="badge" style="left: 920px; top: 686px; background: #14b8a6">生成候选回流</div>
+
+      <div class="footer">
+        执行顺序：先做管理台与动作库模型，再接 Remotion 渲染；剪映/CapCut 只接收通用交付包；Codex
+        先作为项目内工具协议沉淀，再升级为正式 Skill。
+      </div>
+    </main>
+  </body>
+</html>
