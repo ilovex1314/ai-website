@@ -59,6 +59,28 @@ describe('RemotionCourseWorkbench', () => {
     expect(screen.getByLabelText('颜色')).toHaveValue('#d97706')
   })
 
+  it('shows an animated action review instead of a static placeholder', async () => {
+    const user = userEvent.setup()
+    render(<RemotionCourseWorkbench />)
+
+    expect(screen.getByText('进场 · 强调 · 退场')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /重播动作/ })).toBeInTheDocument()
+    expect(screen.getByTestId('preview-action')).toHaveAttribute(
+      'data-animation-phase',
+      'enter-emphasis-exit',
+    )
+
+    await user.click(screen.getByRole('button', { name: /光标点击提示/ }))
+
+    expect(screen.getByTestId('preview-action')).toHaveClass('preview-action--cursor')
+    expect(screen.getByTestId('preview-action')).toHaveTextContent('点击')
+
+    await user.click(screen.getAllByRole('button', { name: /代码行高亮/ }).at(-1)!)
+
+    expect(screen.getByTestId('preview-action')).toHaveClass('preview-action--code')
+    expect(screen.getByTestId('preview-action')).toHaveTextContent('line 6')
+  })
+
   it('duplicates and deletes the selected action', async () => {
     const user = userEvent.setup()
     render(<RemotionCourseWorkbench />)
