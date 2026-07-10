@@ -488,4 +488,52 @@ describe('workbench server', () => {
     },
     30_000,
   )
+
+  it.each(['source-manifest.json', 'media-manifest.json'])(
+    'rejects foreground upload when sources/%s is a symlinked leaf',
+    async (manifestName) => {
+      const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+      const sourceProject = await createSourceProject()
+      const project = createValidProject(sourceProject)
+      const repository = createProjectRepository(projectRoot, [sourceProject])
+      await repository.save(project)
+      const sourcesDirectory = join(projectRoot, project.id, 'sources')
+      const outside = await createTemporaryDirectory('course-workbench-manifest-escape-')
+      const outsideManifest = join(outside, manifestName)
+      await mkdir(sourcesDirectory)
+      await writeFile(outsideManifest, 'unchanged')
+      await symlink(outsideManifest, join(sourcesDirectory, manifestName))
+      const server = createWorkbenchServer({
+        projectRoot,
+        allowedSourceRoots: [sourceProject],
+        port: 0,
+        agentProvider: 'mock',
+      })
+      const baseUrl = await listen(server)
+
+      try {
+        const foreground = await createForegroundMedia()
+        const response = await fetch(`${baseUrl}/api/projects/${project.id}/foreground`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/octet-stream',
+            'x-file-name': foreground.name,
+          },
+          body: Uint8Array.from(foreground.bytes).buffer,
+        })
+
+        expect(response.status).toBe(400)
+        await expect(response.json()).resolves.toMatchObject({
+          code: 'PROJECT_ARTIFACT_PATH_NOT_ALLOWED',
+          stage: 'save',
+          subject: expect.stringContaining(manifestName),
+        })
+        await expect(readFile(outsideManifest, 'utf8')).resolves.toBe('unchanged')
+        expect(existsSync(join(sourcesDirectory, 'foreground', foreground.name))).toBe(false)
+      } finally {
+        await close(server)
+      }
+    },
+    30_000,
+  )
 })

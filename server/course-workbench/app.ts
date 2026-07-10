@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { join, relative } from 'node:path'
 import { Transform } from 'node:stream'
@@ -10,7 +10,11 @@ import { parseCourseProject, type CourseProjectV2 } from '../../src/features/rem
 import type { WorkbenchConfig } from './config.js'
 import { importHyperframesProject } from './hyperframes/importer.js'
 import { probeMedia } from './mediaProbe.js'
-import { resolveContainedPath } from './pathSafety.js'
+import {
+  resolveContainedPath,
+  resolveProjectArtifactPath,
+  writeFileNoFollow,
+} from './pathSafety.js'
 import {
   createProjectRepository,
   WorkbenchServiceError,
@@ -207,6 +211,10 @@ async function receiveForeground(
     join('sources', 'foreground'),
     pathOptions,
   )
+  await Promise.all([
+    resolveProjectArtifactPath(projectDirectory, 'sources/source-manifest.json'),
+    resolveProjectArtifactPath(projectDirectory, 'sources/media-manifest.json'),
+  ])
   await mkdir(requestedUploadDirectory, { recursive: true })
   const uploadDirectory = await resolveContainedPath(
     projectDirectory,
@@ -260,17 +268,19 @@ async function receiveForeground(
     const metadata = await probeMedia(temporary)
     await rename(temporary, destination)
     const relativePath = pathFromProject.replaceAll('\\', '/')
-    const sourceManifestPath = join(projectDirectory, 'sources', 'source-manifest.json')
-    const mediaManifestPath = join(projectDirectory, 'sources', 'media-manifest.json')
+    const [sourceManifestPath, mediaManifestPath] = await Promise.all([
+      resolveProjectArtifactPath(projectDirectory, 'sources/source-manifest.json'),
+      resolveProjectArtifactPath(projectDirectory, 'sources/media-manifest.json'),
+    ])
     const sourceManifest = await readManifest(sourceManifestPath)
     const mediaManifest = await readManifest(mediaManifestPath)
     const foreground = { relativePath, metadata }
     await Promise.all([
-      writeFile(
+      writeFileNoFollow(
         sourceManifestPath,
         `${JSON.stringify({ ...sourceManifest, background: project.source.background, foreground }, null, 2)}\n`,
       ),
-      writeFile(
+      writeFileNoFollow(
         mediaManifestPath,
         `${JSON.stringify({ ...mediaManifest, foreground }, null, 2)}\n`,
       ),
