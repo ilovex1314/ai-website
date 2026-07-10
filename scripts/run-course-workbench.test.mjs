@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
-import { createCourseWorkbenchRunner } from './course-workbench-runner.mjs'
+import { createCourseWorkbenchRunner, createWindowsTreeKiller } from './course-workbench-runner.mjs'
 
 class FakeChild extends EventEmitter {
   constructor(pid) {
@@ -10,6 +10,14 @@ class FakeChild extends EventEmitter {
 }
 
 describe('Course Workbench runner', () => {
+  it('builds a Windows tree killer with taskkill subtree arguments', () => {
+    const executeFile = vi.fn()
+
+    createWindowsTreeKiller(executeFile)(4001)
+
+    expect(executeFile).toHaveBeenCalledWith('taskkill', ['/PID', '4001', '/T', '/F'], expect.any(Function))
+  })
+
   it('starts direct local binaries in detached groups and terminates both process trees', async () => {
     const firstChild = new FakeChild(4101)
     const secondChild = new FakeChild(4102)
@@ -78,5 +86,28 @@ describe('Course Workbench runner', () => {
 
     await expect(runner.run()).resolves.toBe(1)
     expect(killProcess).toHaveBeenCalledWith(-4301, 'SIGTERM')
+  })
+
+  it('uses the injected Windows tree-kill helper for every child process', async () => {
+    const firstChild = new FakeChild(4401)
+    const secondChild = new FakeChild(4402)
+    const children = [firstChild, secondChild]
+    const killWindowsTree = vi.fn()
+    const runner = createCourseWorkbenchRunner({
+      cwd: '/workspace',
+      killWindowsTree,
+      platform: 'win32',
+      registerSignal: vi.fn(),
+      spawnProcess: vi.fn(() => children.shift()),
+    })
+    const result = runner.run()
+
+    runner.stop('SIGTERM')
+
+    expect(killWindowsTree).toHaveBeenCalledWith(4401)
+    expect(killWindowsTree).toHaveBeenCalledWith(4402)
+    firstChild.emit('exit', 0)
+    secondChild.emit('exit', 0)
+    await expect(result).resolves.toBe(0)
   })
 })

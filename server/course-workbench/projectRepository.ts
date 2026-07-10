@@ -84,10 +84,6 @@ function collectPersistedPaths(value: unknown, subject = ''): Array<{ path: stri
   return Object.entries(value).flatMap(([key, nestedValue]) => {
     const nestedSubject = subject.length === 0 ? key : `${subject}.${key}`
 
-    if (key === 'projectPath') {
-      return []
-    }
-
     if (isPathBearingKey(key)) {
       if (typeof nestedValue === 'string') {
         return [{ path: nestedValue, subject: nestedSubject }]

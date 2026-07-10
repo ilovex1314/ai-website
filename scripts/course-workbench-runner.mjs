@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -7,14 +7,18 @@ const viteCli = resolve(workspaceRoot, 'node_modules/vite/bin/vite.js')
 const tsxCli = resolve(workspaceRoot, 'node_modules/tsx/dist/cli.mjs')
 const workbenchStart = resolve(workspaceRoot, 'server/course-workbench/start.ts')
 
-function stopChildProcessTree(child, signal, platform, killProcess) {
+export function createWindowsTreeKiller(executeFile = execFile) {
+  return (pid) => executeFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => undefined)
+}
+
+function stopChildProcessTree(child, signal, platform, killProcess, killWindowsTree) {
   if (child.pid === undefined) {
     return
   }
 
   try {
     if (platform === 'win32') {
-      child.kill(signal)
+      killWindowsTree(child.pid)
     } else {
       killProcess(-child.pid, signal)
     }
@@ -26,6 +30,7 @@ function stopChildProcessTree(child, signal, platform, killProcess) {
 export function createCourseWorkbenchRunner({
   cwd = workspaceRoot,
   killProcess = process.kill,
+  killWindowsTree = createWindowsTreeKiller(),
   platform = process.platform,
   registerSignal = (signal, listener) => process.once(signal, listener),
   spawnProcess = spawn,
@@ -39,7 +44,7 @@ export function createCourseWorkbenchRunner({
     }
 
     shuttingDown = true
-    children.forEach((child) => stopChildProcessTree(child, signal, platform, killProcess))
+    children.forEach((child) => stopChildProcessTree(child, signal, platform, killProcess, killWindowsTree))
   }
 
   function waitForChild(child) {

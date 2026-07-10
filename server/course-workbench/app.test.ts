@@ -145,6 +145,9 @@ describe('project repository', () => {
       (project: CourseProjectV2) => {
         project.actionTemplates[0].implementation.outputFiles = [join(outsideRoot, 'actions', 'circle.ts')]
       },
+      (project: CourseProjectV2) => {
+        project.actionTemplates[0].params = { projectPath: outsideRoot }
+      },
     ]
 
     for (const setIllegalPath of illegalPaths) {
