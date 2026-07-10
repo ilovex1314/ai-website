@@ -90,3 +90,64 @@ Temporary copy used for all writeback:
 - FFprobe completed before the temporary upload was renamed into place.
 - Source and media manifests were updated only after successful probing.
 - JSON requests containing browser-provided absolute paths are rejected with `FILE_UPLOAD_REQUIRED`.
+## Reviewer Findings To Fix
+
+1. Resolve and allowed-root-check every imported child file before read/write/probe; reject symlink escapes for HTML, manifests, metadata, media and migration writes.
+2. Make foreground upload filesystem-safe against symlinked `sources/foreground` ancestors, using canonical containment and no-follow checks where available.
+3. Measure real element visibility across sampled frames using runtime presence, computed display/visibility/opacity and nonzero geometry; derive first/last visible frames instead of assigning full scene ranges.
+4. Return a structured unresolved migration result containing the real report/counts so the UI renders recognized/needsMetadata/unresolved before apply.
+5. Require animation target scene ownership, store thumbnails per aspect, and persist every referenced thumbnail file.
+
+Fix all five with RED/GREEN tests, rerun focused importer/API/intake tests, real temporary-copy import, build, commit Task 4 files, append evidence and commit hash.
+
+## Reviewer Fix Evidence
+
+Follow-up implementation commit: `dfdb328` (`修复：加固 HyperFrames 导入验收`)
+
+### 1. Imported Child Symlink Containment
+
+- RED: five focused cases followed escaping symlinks for `index.html`, `animation-manifest.json`, `meta.json`, selected render media, and `.workbench-backup`.
+- GREEN: all five now reject with `SOURCE_CHILD_NOT_ALLOWED` before read, probe, or migration write; the outside backup directory remains empty.
+- The importer rechecks contained child paths before planning, migration apply, contract validation, metadata read, fingerprinting, and media probing.
+
+### 2. Foreground Upload Symlink Safety
+
+- RED: uploads through symlinked `sources` and `sources/foreground` ancestors returned HTTP 201 and wrote outside the project.
+- GREEN: both cases return `FOREGROUND_PATH_NOT_ALLOWED`; canonical containment and no-symlink traversal checks run before and after directory creation, and outside directories remain empty.
+
+### 3. Sampled Runtime Visibility
+
+- RED: a deterministic element visible only at frames 15 through 23 was reported as visible for the full 0 through 29 scene.
+- GREEN: its stored range is `{ fromFrame: 15, toFrame: 24 }`; permanently `display:none` and zero-geometry elements store empty ranges.
+- Sampling checks runtime presence, ancestor `display`, `visibility`, and `opacity`, plus nonzero pixel geometry for every scene frame.
+
+### 4. Unresolved Report and Intake Counts
+
+- RED: unresolved migration plans threw before returning their counts, and intake attempted to read a missing project id.
+- GREEN: the importer returns `status: unresolved` with the real migration report; intake renders recognized, needs-metadata, and unresolved counts in its error state without showing the metadata apply action.
+
+### 5. Scene Ownership and Persisted Thumbnails
+
+- RED: an animation targeting an element in another scene imported successfully, and thumbnail references had only one aspect with no files.
+- GREEN: cross-scene targets reject with `ANIMATION_TARGET_SCENE_MISMATCH`; scene and element maps store `thumbnailsByAspect`, and every reference points to a persisted nonempty PNG.
+
+## Reviewer Fix Verification
+
+- Focused command: `npm test -- importer.test.ts app.test.ts CourseProjectIntake.test.tsx RemotionCourseWorkbench.test.tsx`
+- Result: 5 test files passed, 70 tests passed, 0 failed.
+- Build command: `npm run build`
+- Result: TypeScript and Vite build passed; only the existing bundle-size advisory remains.
+
+Fresh real fixture copy:
+
+`/Volumes/2TB-NVMe/work/.course-workbench-task4-review.BLvNyp/fixture`
+
+- Scan: HTTP 200, `migration-required`, recognized 0, needs metadata 44, unresolved 0, no writeback.
+- Apply: HTTP 201, `ready`, 11 scenes, 33 runtime elements, 0 action instances.
+- Sampled visibility: 6 elements with nonempty ranges and 27 with empty ranges under the migrated authoritative timing.
+- Source: 1080 x 1920.
+- Media: H.264, 1080 x 1920, 30 fps, 157.533333 seconds, 4726 frames, audio present.
+- Thumbnails: 33 unique per-scene/per-aspect references and 33 persisted nonempty PNG files.
+- Migrated copy validator result: `VALID`.
+- Original `index.html` SHA-256 remained `c77ba1bb0ac4b60ce41c33d266493f56bdb1da92637656be0a68bb33997ac341`.
+- Migrated temporary copy SHA-256: `9931bceb1e62f4df464d4d9ca22f811cfc6703de38284a3affb99e51e1ddd577`.
