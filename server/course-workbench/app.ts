@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { join, relative, resolve } from 'node:path'
+import { join, relative } from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ZodError } from 'zod'
@@ -10,6 +10,7 @@ import { parseCourseProject, type CourseProjectV2 } from '../../src/features/rem
 import type { WorkbenchConfig } from './config.js'
 import { importHyperframesProject } from './hyperframes/importer.js'
 import { probeMedia } from './mediaProbe.js'
+import { resolveContainedPath } from './pathSafety.js'
 import {
   createProjectRepository,
   WorkbenchServiceError,
@@ -189,9 +190,34 @@ async function receiveForeground(
   project: CourseProjectV2,
 ): Promise<{ relativePath: string; metadata: Awaited<ReturnType<typeof probeMedia>> }> {
   const fileName = uploadFileName(request)
-  const projectDirectory = resolve(config.projectRoot, project.id)
-  const uploadDirectory = resolve(projectDirectory, 'sources', 'foreground')
-  const destination = resolve(uploadDirectory, fileName)
+  const pathOptions = {
+    allowMissing: true,
+    rejectSymlinks: true,
+    code: 'FOREGROUND_PATH_NOT_ALLOWED',
+    stage: 'import' as const,
+    message: 'Foreground upload path must stay inside the course project without symlink ancestors',
+    recovery: 'Remove symlinks from the project sources directory and upload the file again.',
+  }
+  const projectDirectory = await resolveContainedPath(config.projectRoot, project.id, {
+    ...pathOptions,
+    allowMissing: false,
+  })
+  const requestedUploadDirectory = await resolveContainedPath(
+    projectDirectory,
+    join('sources', 'foreground'),
+    pathOptions,
+  )
+  await mkdir(requestedUploadDirectory, { recursive: true })
+  const uploadDirectory = await resolveContainedPath(
+    projectDirectory,
+    join('sources', 'foreground'),
+    { ...pathOptions, allowMissing: false },
+  )
+  const destination = await resolveContainedPath(
+    uploadDirectory,
+    fileName,
+    pathOptions,
+  )
   const pathFromProject = relative(projectDirectory, destination)
 
   if (pathFromProject.startsWith('..')) {
@@ -204,7 +230,6 @@ async function receiveForeground(
     })
   }
 
-  await mkdir(uploadDirectory, { recursive: true })
   const temporary = `${destination}.${randomUUID()}.tmp`
   let size = 0
   const limiter = new Transform({

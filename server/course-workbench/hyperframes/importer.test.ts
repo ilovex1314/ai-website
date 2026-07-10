@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { promisify } from 'node:util'
@@ -28,6 +28,26 @@ async function copyRealFixture(): Promise<{ fixture: string; sourceRoot: string 
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex')
+}
+
+async function createDeclaredFixture(sourceRoot: string, id = 'declared-course'): Promise<string> {
+  const fixture = join(sourceRoot, id)
+  await mkdir(join(fixture, 'assets'), { recursive: true })
+  await writeFile(
+    join(fixture, 'index.html'),
+    '<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><section data-hf-scene-id="intro"><h1 data-hf-element-id="title" data-hf-role="title">Hello</h1></section></div></body></html>',
+  )
+  await writeFile(
+    join(fixture, 'animation-manifest.json'),
+    JSON.stringify({
+      schemaVersion: 1,
+      fps: 30,
+      durationInFrames: 90,
+      scenes: [{ id: 'intro', fromFrame: 0, durationFrames: 90 }],
+      animations: [],
+    }),
+  )
+  return fixture
 }
 
 afterEach(async () => {
@@ -91,16 +111,24 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
     expect(migratedHtml).toContain('data-hf-element-id=')
     expect(migratedHtml).not.toBe(htmlBefore)
 
+    let visibleElementCount = 0
+
     Object.values(imported.elementMap).forEach((element) => {
       expect(migratedHtml).toContain(`data-hf-element-id="${element.id}"`)
       expect(element.selector).toBe(`[data-hf-element-id="${element.id}"]`)
-      expect(element.visibility.toFrame).toBeGreaterThan(element.visibility.fromFrame)
+      expect(element.visibility.toFrame).toBeGreaterThanOrEqual(element.visibility.fromFrame)
+
+      if (element.visibility.toFrame > element.visibility.fromFrame) {
+        visibleElementCount += 1
+      }
+
       expect(Object.keys(element.rectsByAspect).sort()).toEqual(['16:9', '4:3', '9:16'])
       Object.values(element.rectsByAspect).forEach((rect) => {
         expect(rect.width).toBeGreaterThanOrEqual(0)
         expect(rect.height).toBeGreaterThanOrEqual(0)
       })
     })
+    expect(visibleElementCount).toBeGreaterThan(0)
 
     expect(imported.fingerprints['index.html']).toBe(sha256(migratedHtml))
     expect(imported.fingerprints['animation-manifest.json']).toMatch(/^[a-f0-9]{64}$/)
@@ -176,6 +204,263 @@ describe('baked animation ownership', () => {
     ])
     expect(imported.project.actionInstances).toEqual([])
   }, 30_000)
+
+  it('rejects an animation target owned by a different declared scene', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-scene-owner-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'scene-owner-course')
+    await writeFile(
+      join(fixture, 'index.html'),
+      '<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><section data-hf-scene-id="intro"><p data-hf-element-id="intro-body">Intro</p></section><section data-hf-scene-id="outro"><h1 data-hf-element-id="title">Title</h1></section></div></body></html>',
+    )
+    await writeFile(
+      join(fixture, 'animation-manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        fps: 30,
+        durationInFrames: 60,
+        scenes: [
+          { id: 'intro', fromFrame: 0, durationFrames: 30 },
+          { id: 'outro', fromFrame: 30, durationFrames: 30 },
+        ],
+        animations: [
+          {
+            id: 'wrong-scene',
+            sceneId: 'intro',
+            targetElementId: 'title',
+            fromFrame: 0,
+            durationFrames: 10,
+            kind: 'entrance',
+            exportRole: 'baked-internal',
+            properties: ['opacity'],
+          },
+        ],
+      }),
+    )
+
+    await expect(importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })).rejects.toMatchObject({
+      code: 'ANIMATION_TARGET_SCENE_MISMATCH',
+      stage: 'import',
+      subject: 'title',
+    })
+  }, 30_000)
+})
+
+describe('per-aspect thumbnails', () => {
+  it('stores aspect-specific references and persists every referenced thumbnail', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-thumbnail-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'thumbnail-course')
+    const projectRoot = await temporaryDirectory('course-workbench-projects-')
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot,
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9', '4:3', '9:16'],
+    })
+
+    expect(imported.status).toBe('ready')
+
+    if (imported.status !== 'ready') {
+      throw new Error('Expected a ready import result')
+    }
+
+    const references = new Set<string>()
+
+    for (const entry of [...Object.values(imported.sceneMap), ...Object.values(imported.elementMap)]) {
+      expect(entry).toHaveProperty('thumbnailsByAspect')
+      const thumbnails = (entry as unknown as {
+        thumbnailsByAspect: Record<'16:9' | '4:3' | '9:16', string>
+      }).thumbnailsByAspect
+      expect(Object.keys(thumbnails).sort()).toEqual(['16:9', '4:3', '9:16'])
+      Object.values(thumbnails).forEach((reference) => references.add(reference))
+    }
+
+    expect(references.size).toBe(3)
+
+    for (const reference of references) {
+      const thumbnail = join(projectRoot, imported.project.id, reference)
+      expect(existsSync(thumbnail)).toBe(true)
+      expect((await stat(thumbnail)).size).toBeGreaterThan(0)
+    }
+  }, 30_000)
+})
+
+describe('imported child path containment', () => {
+  it.each(['index.html', 'animation-manifest.json', 'meta.json'])(
+    'rejects a %s symlink that escapes the imported project',
+    async (childName) => {
+      const sourceRoot = await temporaryDirectory('course-workbench-contained-source-')
+      const fixture = await createDeclaredFixture(sourceRoot)
+      const outsideRoot = await temporaryDirectory('course-workbench-outside-child-')
+      const outsidePath = join(outsideRoot, childName)
+      await rm(join(fixture, childName), { force: true })
+
+      if (childName === 'index.html') {
+        await writeFile(
+          outsidePath,
+          '<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><section data-hf-scene-id="intro"><h1 data-hf-element-id="title">Outside</h1></section></div></body></html>',
+        )
+      } else if (childName === 'animation-manifest.json') {
+        await writeFile(
+          outsidePath,
+          JSON.stringify({
+            schemaVersion: 1,
+            fps: 30,
+            durationInFrames: 90,
+            scenes: [{ id: 'intro', fromFrame: 0, durationFrames: 90 }],
+            animations: [],
+          }),
+        )
+      } else {
+        await writeFile(outsidePath, JSON.stringify({ id: 'outside-metadata', name: 'Outside metadata' }))
+      }
+
+      await symlink(outsidePath, join(fixture, childName))
+
+      await expect(importHyperframesProject({
+        sourcePath: fixture,
+        projectRoot: await temporaryDirectory('course-workbench-projects-'),
+        allowedSourceRoots: [sourceRoot],
+        aspects: ['16:9'],
+      })).rejects.toMatchObject({
+        code: 'SOURCE_CHILD_NOT_ALLOWED',
+        stage: 'import',
+        subject: expect.stringContaining(childName),
+      })
+    },
+    30_000,
+  )
+
+  it.skipIf(!existsSync(realFixture))('rejects selected render media that resolves outside the imported project', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-contained-source-')
+    const fixture = await createDeclaredFixture(sourceRoot)
+    await mkdir(join(fixture, 'renders'))
+    await symlink(
+      join(realFixture, 'renders', 'codex-keyframes-tutorial.mp4'),
+      join(fixture, 'renders', 'declared-course.mp4'),
+    )
+
+    await expect(importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })).rejects.toMatchObject({
+      code: 'SOURCE_CHILD_NOT_ALLOWED',
+      subject: expect.stringContaining('renders/declared-course.mp4'),
+    })
+  }, 30_000)
+
+  it('rejects a migration backup symlink before any outside write', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-contained-source-')
+    const fixture = join(sourceRoot, 'legacy-course')
+    const outsideBackup = await temporaryDirectory('course-workbench-outside-backup-')
+    await mkdir(join(fixture, 'assets'), { recursive: true })
+    await writeFile(
+      join(fixture, 'index.html'),
+      '<!doctype html><html><body><div data-composition-id="main" data-width="1080" data-height="1920"><section><h1>Legacy</h1></section></div></body></html>',
+    )
+    await symlink(outsideBackup, join(fixture, '.workbench-backup'))
+
+    await expect(importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+      applyMetadata: true,
+      aspects: ['9:16'],
+    })).rejects.toMatchObject({
+      code: 'SOURCE_CHILD_NOT_ALLOWED',
+      subject: expect.stringContaining('.workbench-backup'),
+    })
+    await expect(readdir(outsideBackup)).resolves.toEqual([])
+  }, 30_000)
+})
+
+describe('runtime visibility sampling', () => {
+  it('derives first and last visible frames from computed runtime state and geometry', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-visibility-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'visibility-course')
+    await writeFile(
+      join(fixture, 'index.html'),
+      `<!doctype html><html><body>
+        <div data-composition-id="main" data-width="1920" data-height="1080">
+          <section data-hf-scene-id="intro">
+            <h1 id="window" data-hf-element-id="window" data-hf-role="title" style="width: 200px; height: 80px; opacity: 0">Window</h1>
+            <div data-hf-element-id="display-none" data-hf-role="note" style="display: none; width: 100px; height: 40px">Hidden</div>
+            <div data-hf-element-id="zero-geometry" data-hf-role="note" style="width: 0; height: 0">Zero</div>
+          </section>
+        </div>
+        <script>
+          window.__timelines = {
+            main: {
+              seek(time) {
+                document.getElementById('window').style.opacity = time >= 0.5 && time < 0.8 ? '1' : '0';
+              }
+            }
+          };
+        </script>
+      </body></html>`,
+    )
+    await writeFile(
+      join(fixture, 'animation-manifest.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        fps: 30,
+        durationInFrames: 30,
+        scenes: [{ id: 'intro', fromFrame: 0, durationFrames: 30 }],
+        animations: [],
+      }),
+    )
+
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })
+
+    expect(imported.status).toBe('ready')
+
+    if (imported.status !== 'ready') {
+      throw new Error('Expected a ready import result')
+    }
+
+    expect(imported.elementMap.window.visibility).toEqual({ fromFrame: 15, toFrame: 24 })
+    expect(imported.elementMap['display-none'].visibility).toEqual({ fromFrame: 0, toFrame: 0 })
+    expect(imported.elementMap['zero-geometry'].visibility).toEqual({ fromFrame: 0, toFrame: 0 })
+  }, 30_000)
+})
+
+describe('unresolved migration reporting', () => {
+  it('returns the migration report instead of throwing before the UI can render counts', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-unresolved-source-')
+    const fixture = join(sourceRoot, 'unresolved-course')
+    await mkdir(join(fixture, 'assets'), { recursive: true })
+    await writeFile(
+      join(fixture, 'index.html'),
+      '<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><main>No stable scene</main></div></body></html>',
+    )
+
+    await expect(importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+    })).resolves.toEqual(expect.objectContaining({
+      status: 'unresolved',
+      migrationReport: expect.objectContaining({
+        applied: false,
+        summary: {
+          recognized: 0,
+          needsMetadata: 0,
+          unresolved: 1,
+        },
+      }),
+    }))
+  })
 })
 
 describe('media probe', () => {

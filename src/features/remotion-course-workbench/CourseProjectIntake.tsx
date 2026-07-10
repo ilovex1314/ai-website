@@ -17,6 +17,10 @@ export type CourseProjectIntakeResult =
       migrationReport: MigrationReport
     }
   | {
+      status: 'unresolved'
+      migrationReport: MigrationReport
+    }
+  | {
       status: 'ready'
       project: { id: string }
       migrationReport: MigrationReport
@@ -161,6 +165,15 @@ export function CourseProjectIntake({
 
       if (result.status === 'migration-required') {
         setState('migration-required')
+        return
+      }
+
+      if (result.status === 'unresolved') {
+        setError({
+          message: '存在无法自动识别的项目结构',
+          recovery: '请先为无法识别的场景和元素补充稳定声明，再重新扫描。',
+        })
+        setState('error')
         return
       }
 

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, readFile, realpath, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, realpath, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import type { Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -438,4 +438,54 @@ describe('workbench server', () => {
       await close(server)
     }
   }, 30_000)
+
+  it.each(['sources', 'sources/foreground'])(
+    'rejects foreground upload through a symlinked %s ancestor',
+    async (symlinkLocation) => {
+      const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+      const sourceProject = await createSourceProject()
+      const project = createValidProject(sourceProject)
+      const repository = createProjectRepository(projectRoot, [sourceProject])
+      await repository.save(project)
+      const outside = await createTemporaryDirectory('course-workbench-upload-escape-')
+      const projectDirectory = join(projectRoot, project.id)
+
+      if (symlinkLocation === 'sources') {
+        await symlink(outside, join(projectDirectory, 'sources'))
+      } else {
+        await mkdir(join(projectDirectory, 'sources'))
+        await symlink(outside, join(projectDirectory, 'sources', 'foreground'))
+      }
+
+      const server = createWorkbenchServer({
+        projectRoot,
+        allowedSourceRoots: [sourceProject],
+        port: 0,
+        agentProvider: 'mock',
+      })
+      const baseUrl = await listen(server)
+
+      try {
+        const foreground = await createForegroundMedia()
+        const response = await fetch(`${baseUrl}/api/projects/${project.id}/foreground`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/octet-stream',
+            'x-file-name': foreground.name,
+          },
+          body: Uint8Array.from(foreground.bytes).buffer,
+        })
+
+        expect(response.status).toBe(400)
+        await expect(response.json()).resolves.toMatchObject({
+          code: 'FOREGROUND_PATH_NOT_ALLOWED',
+          stage: 'import',
+        })
+        await expect(readdir(outside)).resolves.toEqual([])
+      } finally {
+        await close(server)
+      }
+    },
+    30_000,
+  )
 })

@@ -112,6 +112,38 @@ describe('CourseProjectIntake', () => {
     expect(screen.getByTestId('course-project-intake')).toHaveAttribute('data-state', 'error')
   })
 
+  it('renders unresolved report counts without offering metadata apply', async () => {
+    const user = userEvent.setup()
+    const api: CourseProjectIntakeApi = {
+      importHyperframes: vi.fn().mockResolvedValue({
+        status: 'unresolved',
+        migrationReport: {
+          summary: { recognized: 2, needsMetadata: 3, unresolved: 1 },
+          applied: false,
+        },
+      }),
+      uploadForeground: vi.fn(),
+    }
+    render(
+      <CourseProjectIntake
+        api={api}
+        projectPath="/allowed/unresolved-course"
+        durationLabel="0s · 0f"
+        foregroundName="speaker.mp4"
+        foregroundPath=""
+        structure={{ scenes: 0, elements: 0, animations: 0 }}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: '导入 HyperFrames 文件夹' }))
+    expect(await screen.findByText('存在无法自动识别的项目结构')).toBeInTheDocument()
+    expect(screen.getByText('已识别 2')).toBeInTheDocument()
+    expect(screen.getByText('待补全 3')).toBeInTheDocument()
+    expect(screen.getByText('未解决 1')).toBeInTheDocument()
+    expect(screen.getByTestId('course-project-intake')).toHaveAttribute('data-state', 'error')
+    expect(screen.queryByRole('button', { name: '补全项目元数据' })).not.toBeInTheDocument()
+  })
+
   it('uploads the selected foreground file only after the project is ready', async () => {
     const user = userEvent.setup()
     const api: CourseProjectIntakeApi = {

@@ -5,6 +5,7 @@ import { basename, join, relative } from 'node:path'
 import type { CanvasAspectRatio } from '../../../src/features/remotion-course-workbench/workbenchTypes.js'
 import type { CourseProjectV2 } from '../../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
 import { probeMedia, type MediaMetadata } from '../mediaProbe.js'
+import { resolveContainedPath } from '../pathSafety.js'
 import { createProjectRepository, WorkbenchServiceError } from '../projectRepository.js'
 import { validateHyperframesContract, type AnimationManifest } from './contract.js'
 import { applyHyperframesMigration, planHyperframesMigration } from './migrator.js'
@@ -53,6 +54,11 @@ type MigrationRequiredImport = {
   migrationReport: HyperframesMigrationReport
 }
 
+type UnresolvedMigrationImport = {
+  status: 'unresolved'
+  migrationReport: HyperframesMigrationReport
+}
+
 export type ReadyHyperframesImport = {
   status: 'ready'
   project: CourseProjectV2
@@ -68,18 +74,46 @@ export type ReadyHyperframesImport = {
   }
 }
 
-export type HyperframesImportResult = MigrationRequiredImport | ReadyHyperframesImport
+export type HyperframesImportResult = MigrationRequiredImport | UnresolvedMigrationImport | ReadyHyperframesImport
 
 function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
 }
 
 async function readMetadata(root: string): Promise<{ id?: string; name?: string }> {
+  const path = await resolveSourceChild(root, 'meta.json', true)
+
+  if (!existsSync(path)) {
+    return {}
+  }
+
   try {
-    return JSON.parse(await readFile(join(root, 'meta.json'), 'utf8')) as { id?: string; name?: string }
+    return JSON.parse(await readFile(path, 'utf8')) as { id?: string; name?: string }
   } catch {
     return {}
   }
+}
+
+function resolveSourceChild(root: string, child: string, allowMissing = false): Promise<string> {
+  return resolveContainedPath(root, child, {
+    allowMissing,
+    code: 'SOURCE_CHILD_NOT_ALLOWED',
+    stage: 'import',
+    message: 'Imported HyperFrames child path escapes the source project',
+    recovery: 'Replace external symlinks with files contained inside the imported project.',
+  })
+}
+
+async function validateSourceChildren(root: string): Promise<void> {
+  await Promise.all([
+    resolveSourceChild(root, 'index.html'),
+    resolveSourceChild(root, 'animation-manifest.json', true),
+    resolveSourceChild(root, 'meta.json', true),
+    resolveSourceChild(root, 'hyperframes.json', true),
+    resolveSourceChild(root, 'assets', true),
+    resolveSourceChild(root, 'renders', true),
+    resolveSourceChild(root, '.workbench-backup', true),
+  ])
 }
 
 function projectId(root: string, declared?: string): string {
@@ -121,7 +155,7 @@ async function collectFingerprints(root: string, mediaPath?: string): Promise<Re
   const fingerprints: Record<string, string> = {}
 
   for (const candidate of candidates) {
-    const path = join(root, candidate)
+    const path = await resolveSourceChild(root, candidate, true)
 
     if (existsSync(path)) {
       fingerprints[candidate] = await sha256(path)
@@ -136,7 +170,7 @@ async function collectFingerprints(root: string, mediaPath?: string): Promise<Re
 }
 
 async function findBackgroundMedia(root: string, id: string): Promise<string | undefined> {
-  const renders = join(root, 'renders')
+  const renders = await resolveSourceChild(root, 'renders', true)
 
   if (!existsSync(renders)) {
     return undefined
@@ -144,7 +178,7 @@ async function findBackgroundMedia(root: string, id: string): Promise<string | u
 
   const files = (await readdir(renders)).filter((file) => file.toLowerCase().endsWith('.mp4')).sort()
   const preferred = files.find((file) => file === `${id}.mp4`) ?? files[0]
-  return preferred === undefined ? undefined : join(renders, preferred)
+  return preferred === undefined ? undefined : resolveSourceChild(root, join('renders', preferred))
 }
 
 function bakedAnimationMap(manifest: AnimationManifest): Record<string, BakedAnimationMetadata> {
@@ -197,6 +231,7 @@ export async function importHyperframesProject(
 ): Promise<HyperframesImportResult> {
   const repository = createProjectRepository(request.projectRoot, request.allowedSourceRoots)
   const root = await repository.importPath(request.sourcePath)
+  await validateSourceChildren(root)
   const migration = await planHyperframesMigration(root)
   const requiresWriteback = migration.patches.length > 0 || migration.manifestChanged
   const report: HyperframesMigrationReport = {
@@ -206,13 +241,7 @@ export async function importHyperframesProject(
   }
 
   if (migration.summary.unresolved > 0) {
-    throw new WorkbenchServiceError({
-      code: 'SOURCE_CONTRACT_INVALID',
-      stage: 'import',
-      message: 'HyperFrames source contains structures that cannot be migrated automatically',
-      subject: root,
-      recovery: 'Declare stable scene and element metadata, then retry the import.',
-    })
+    return { status: 'unresolved', migrationReport: report }
   }
 
   if (requiresWriteback && request.applyMetadata !== true) {
@@ -220,11 +249,13 @@ export async function importHyperframesProject(
   }
 
   if (requiresWriteback) {
+    await validateSourceChildren(root)
     const applied = await applyHyperframesMigration(migration)
     report.applied = true
     report.backupPath = applied.backupPath
   }
 
+  await validateSourceChildren(root)
   const contract = await validateHyperframesContract(root)
 
   if (!contract.valid || contract.manifest === undefined) {
@@ -240,9 +271,22 @@ export async function importHyperframesProject(
   const aspects: CanvasAspectRatio[] = request.aspects?.length
     ? [...new Set(request.aspects)]
     : ['16:9', '4:3', '9:16']
-  const runtime = await inspectHyperframesRuntime(root, contract.manifest, aspects)
   const metadata = await readMetadata(root)
   const id = projectId(root, metadata.id)
+  const projectDirectory = await resolveContainedPath(request.projectRoot, id, {
+    allowMissing: true,
+    rejectSymlinks: true,
+    code: 'PROJECT_OUTPUT_NOT_ALLOWED',
+    stage: 'save',
+    message: 'Course project output path must stay inside the project root without symlinks',
+    recovery: 'Remove the conflicting project symlink or choose a different project id.',
+  })
+  const runtime = await inspectHyperframesRuntime(
+    root,
+    contract.manifest,
+    aspects,
+    join(projectDirectory, 'hyperframes', 'thumbnails'),
+  )
   const mediaPath = await findBackgroundMedia(root, id)
   const backgroundMedia = mediaPath === undefined
     ? undefined
@@ -285,6 +329,6 @@ export async function importHyperframesProject(
     fingerprints: await collectFingerprints(root, mediaPath),
     backgroundMedia,
   }
-  await persistImportArtifacts(join(request.projectRoot, project.id), result)
+  await persistImportArtifacts(projectDirectory, result)
   return result
 }

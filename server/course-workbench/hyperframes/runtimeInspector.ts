@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 
 import { createReadStream } from 'node:fs'
-import { realpath, stat } from 'node:fs/promises'
+import { mkdir, realpath, stat } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { chromium } from 'playwright'
@@ -20,7 +20,7 @@ export type RuntimeScene = {
   id: string
   fromFrame: number
   durationFrames: number
-  thumbnailRef: string
+  thumbnailsByAspect: Partial<Record<CanvasAspectRatio, string>>
 }
 
 export type RuntimeElement = {
@@ -30,7 +30,7 @@ export type RuntimeElement = {
   selector: string
   text: string
   depth: number
-  thumbnailRef: string
+  thumbnailsByAspect: Partial<Record<CanvasAspectRatio, string>>
   visibility: {
     fromFrame: number
     toFrame: number
@@ -114,13 +114,15 @@ async function closeServer(server: Server): Promise<void> {
 }
 
 function thumbnailRef(aspect: CanvasAspectRatio, sceneId: string): string {
-  return `hyperframes/thumbnails/${aspect.replace(':', 'x')}/${sceneId}.png`
+  const safeSceneId = encodeURIComponent(sceneId).replaceAll('%', '_')
+  return `hyperframes/thumbnails/${aspect.replace(':', 'x')}/${safeSceneId}.png`
 }
 
 export async function inspectHyperframesRuntime(
   root: string,
   manifest: AnimationManifest,
   aspects: CanvasAspectRatio[],
+  thumbnailDirectory: string,
 ): Promise<RuntimeInspection> {
   const { server, url } = await serveProject(root)
   const browser = await chromium.launch({ headless: true })
@@ -131,6 +133,8 @@ export async function inspectHyperframesRuntime(
   try {
     for (const aspect of aspects) {
       const page = await browser.newPage({ viewport: viewports[aspect] })
+      const aspectThumbnailDirectory = join(thumbnailDirectory, aspect.replace(':', 'x'))
+      await mkdir(aspectThumbnailDirectory, { recursive: true })
       await page.goto(url, { waitUntil: 'load' })
       await page.waitForFunction(() => document.readyState === 'complete')
 
@@ -143,45 +147,113 @@ export async function inspectHyperframesRuntime(
       sourceDimensions ??= dimensions
 
       for (const scene of manifest.scenes) {
-        const sampleFrame = scene.fromFrame + Math.min(scene.durationFrames - 1, Math.floor(scene.durationFrames / 2))
         const sampled = await page.evaluate(
-          ({ sceneId, seconds }) => {
+          ({ sceneId, fromFrame, durationFrames, fps }) => {
             type SeekableTimeline = { seek(time: number, suppressEvents?: boolean): void }
+            type SampledElement = {
+              id: string
+              role: string
+              text: string
+              depth: number
+              rect: PixelRect
+              firstVisibleFrame?: number
+              lastVisibleFrame?: number
+            }
             const timelines = (window as typeof window & { __timelines?: Record<string, SeekableTimeline> }).__timelines
-            Object.values(timelines ?? {}).forEach((timeline) => timeline.seek(seconds, true))
             const sceneElement = document.querySelector<HTMLElement>(`[data-hf-scene-id="${CSS.escape(sceneId)}"]`)
 
             if (sceneElement === null) {
               return []
             }
 
-            return Array.from(sceneElement.querySelectorAll<HTMLElement>('[data-hf-element-id]')).map((element) => {
-              const rect = element.getBoundingClientRect()
-              let depth = 0
-              let parent = element.parentElement
-
-              while (parent !== null && parent !== sceneElement) {
-                depth += 1
-                parent = parent.parentElement
-              }
-
-              return {
-                id: element.dataset.hfElementId ?? '',
-                role: element.dataset.hfRole ?? 'unknown',
-                text: (element.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 180),
-                depth,
-                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-              }
+            document.querySelectorAll<HTMLElement>('[data-hf-scene-id]').forEach((candidate) => {
+              candidate.style.visibility = candidate === sceneElement ? 'visible' : 'hidden'
             })
+
+            const elements = new Map<string, SampledElement>()
+
+            for (let frame = fromFrame; frame < fromFrame + durationFrames; frame += 1) {
+              Object.values(timelines ?? {}).forEach((timeline) => timeline.seek(frame / fps, true))
+
+              Array.from(sceneElement.querySelectorAll<HTMLElement>('[data-hf-element-id]')).forEach((element) => {
+                const id = element.dataset.hfElementId ?? ''
+
+                if (id.length === 0) {
+                  return
+                }
+
+                const bounds = element.getBoundingClientRect()
+                const rect = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+                let depth = 0
+                let parent = element.parentElement
+
+                while (parent !== null && parent !== sceneElement) {
+                  depth += 1
+                  parent = parent.parentElement
+                }
+
+                let rendered = element.isConnected && rect.width > 0 && rect.height > 0
+                let visibilityNode: HTMLElement | null = element
+
+                while (rendered && visibilityNode !== null) {
+                  const style = getComputedStyle(visibilityNode)
+                  rendered = style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && style.visibility !== 'collapse'
+                    && Number(style.opacity) > 0.001
+                  visibilityNode = visibilityNode.parentElement
+                }
+
+                const existing = elements.get(id) ?? {
+                  id,
+                  role: element.dataset.hfRole ?? 'unknown',
+                  text: (element.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 180),
+                  depth,
+                  rect,
+                }
+
+                if (rendered) {
+                  existing.firstVisibleFrame ??= frame
+                  existing.lastVisibleFrame = frame
+                  existing.rect = rect
+                }
+
+                elements.set(id, existing)
+              })
+            }
+
+            return [...elements.values()]
           },
-          { sceneId: scene.id, seconds: sampleFrame / manifest.fps },
+          {
+            sceneId: scene.id,
+            fromFrame: scene.fromFrame,
+            durationFrames: scene.durationFrames,
+            fps: manifest.fps,
+          },
         )
 
-        sceneMap[scene.id] ??= {
+        const reference = thumbnailRef(aspect, scene.id)
+        const thumbnailPath = join(aspectThumbnailDirectory, reference.split('/').at(-1) ?? 'scene.png')
+        const thumbnailFrame = scene.fromFrame + Math.min(scene.durationFrames - 1, Math.floor(scene.durationFrames / 2))
+        await page.evaluate(
+          ({ seconds }) => {
+            type SeekableTimeline = { seek(time: number, suppressEvents?: boolean): void }
+            const timelines = (window as typeof window & { __timelines?: Record<string, SeekableTimeline> }).__timelines
+            Object.values(timelines ?? {}).forEach((timeline) => timeline.seek(seconds, true))
+          },
+          { seconds: thumbnailFrame / manifest.fps },
+        )
+        await page.screenshot({ path: thumbnailPath })
+
+        const existingScene = sceneMap[scene.id]
+        sceneMap[scene.id] = {
           id: scene.id,
           fromFrame: scene.fromFrame,
           durationFrames: scene.durationFrames,
-          thumbnailRef: thumbnailRef(aspect, scene.id),
+          thumbnailsByAspect: {
+            ...existingScene?.thumbnailsByAspect,
+            [aspect]: reference,
+          },
         }
 
         sampled.forEach((element) => {
@@ -190,6 +262,20 @@ export async function inspectHyperframesRuntime(
           }
 
           const existing = elementMap[element.id]
+          const sampledVisibility = element.firstVisibleFrame === undefined
+            ? { fromFrame: scene.fromFrame, toFrame: scene.fromFrame }
+            : { fromFrame: element.firstVisibleFrame, toFrame: (element.lastVisibleFrame ?? element.firstVisibleFrame) + 1 }
+          const existingIsVisible = existing !== undefined
+            && existing.visibility.toFrame > existing.visibility.fromFrame
+          const sampledIsVisible = sampledVisibility.toFrame > sampledVisibility.fromFrame
+          const visibility = existingIsVisible && sampledIsVisible
+            ? {
+                fromFrame: Math.min(existing.visibility.fromFrame, sampledVisibility.fromFrame),
+                toFrame: Math.max(existing.visibility.toFrame, sampledVisibility.toFrame),
+              }
+            : existingIsVisible
+              ? existing.visibility
+              : sampledVisibility
           elementMap[element.id] = {
             id: element.id,
             sceneId: scene.id,
@@ -197,11 +283,11 @@ export async function inspectHyperframesRuntime(
             selector: `[data-hf-element-id="${element.id}"]`,
             text: element.text,
             depth: element.depth,
-            thumbnailRef: thumbnailRef(aspect, scene.id),
-            visibility: {
-              fromFrame: scene.fromFrame,
-              toFrame: scene.fromFrame + scene.durationFrames,
+            thumbnailsByAspect: {
+              ...existing?.thumbnailsByAspect,
+              [aspect]: reference,
             },
+            visibility,
             rectsByAspect: {
               ...existing?.rectsByAspect,
               [aspect]: element.rect,
@@ -218,13 +304,25 @@ export async function inspectHyperframesRuntime(
   }
 
   for (const animation of manifest.animations) {
-    if (elementMap[animation.targetElementId] === undefined) {
+    const target = elementMap[animation.targetElementId]
+
+    if (target === undefined) {
       throw new WorkbenchServiceError({
         code: 'ANIMATION_TARGET_MISSING',
         stage: 'import',
         message: `Animation ${animation.id} target is missing from the runtime DOM`,
         subject: animation.targetElementId,
         recovery: 'Add the declared data-hf-element-id to the runtime element or update animation-manifest.json.',
+      })
+    }
+
+    if (target.sceneId !== animation.sceneId) {
+      throw new WorkbenchServiceError({
+        code: 'ANIMATION_TARGET_SCENE_MISMATCH',
+        stage: 'import',
+        message: `Animation ${animation.id} target belongs to scene ${target.sceneId}, not ${animation.sceneId}`,
+        subject: animation.targetElementId,
+        recovery: 'Update animation-manifest.json so sceneId owns the declared target element.',
       })
     }
   }
