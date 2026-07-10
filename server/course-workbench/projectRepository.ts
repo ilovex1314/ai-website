@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
-import { mkdir, readFile, readdir, realpath, rename, writeFile } from 'node:fs/promises'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import {
   parseCourseProject,
   type CourseProjectV2,
@@ -60,9 +61,122 @@ export type ProjectRepository = {
   save(project: CourseProjectV2): Promise<CourseProjectV2>
 }
 
-export function createProjectRepository(projectRoot: string, allowedSourceRoots: string[] = []): ProjectRepository {
+export type ProjectRepositoryOptions = {
+  mkdir?: typeof mkdir
+  rename?: typeof rename
+  rm?: typeof rm
+  writeFile?: typeof writeFile
+}
+
+function isPathBearingKey(key: string): boolean {
+  return key === 'entryHtml' || key === 'assetsDir' || /(?:path|file|files|dir|directory)$/iu.test(key)
+}
+
+function collectPersistedPaths(value: unknown, subject = ''): Array<{ path: string; subject: string }> {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectPersistedPaths(item, `${subject}[${index}]`))
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return []
+  }
+
+  return Object.entries(value).flatMap(([key, nestedValue]) => {
+    const nestedSubject = subject.length === 0 ? key : `${subject}.${key}`
+
+    if (key === 'projectPath') {
+      return []
+    }
+
+    if (isPathBearingKey(key)) {
+      if (typeof nestedValue === 'string') {
+        return [{ path: nestedValue, subject: nestedSubject }]
+      }
+
+      if (Array.isArray(nestedValue)) {
+        return nestedValue.flatMap((path, index) =>
+          typeof path === 'string' ? [{ path, subject: `${nestedSubject}[${index}]` }] : [],
+        )
+      }
+    }
+
+    return collectPersistedPaths(nestedValue, nestedSubject)
+  })
+}
+
+export function createProjectRepository(
+  projectRoot: string,
+  allowedSourceRoots: string[] = [],
+  options: ProjectRepositoryOptions = {},
+): ProjectRepository {
   const resolvedProjectRoot = resolve(projectRoot)
   const resolvedSourceRoots = allowedSourceRoots.map((sourceRoot) => realpathSync(sourceRoot))
+  const fileSystem = {
+    mkdir,
+    rename,
+    rm,
+    writeFile,
+    ...options,
+  }
+  const saveTails = new Map<string, Promise<void>>()
+
+  async function resolveAllowedPath(path: string, basePath: string, subject: string): Promise<string> {
+    const requestedPath = isAbsolute(path) ? path : resolve(basePath, path)
+    let resolvedPath: string
+
+    try {
+      resolvedPath = await realpath(requestedPath)
+    } catch {
+      throw new WorkbenchServiceError({
+        code: 'PERSISTED_PATH_NOT_ALLOWED',
+        stage: 'save',
+        message: 'Persisted project path does not resolve to an allowed source path',
+        subject,
+        recovery: 'Use an existing path inside WORKBENCH_ALLOWED_SOURCE_ROOTS.',
+      })
+    }
+
+    if (!resolvedSourceRoots.some((root) => isContainedPath(root, resolvedPath))) {
+      throw new WorkbenchServiceError({
+        code: 'PERSISTED_PATH_NOT_ALLOWED',
+        stage: 'save',
+        message: 'Persisted project path is outside the configured allowed roots',
+        subject,
+        recovery: 'Use a path inside WORKBENCH_ALLOWED_SOURCE_ROOTS.',
+      })
+    }
+
+    return resolvedPath
+  }
+
+  async function validatePersistedPaths(project: CourseProjectV2): Promise<void> {
+    const sourceProjectPath = await resolveAllowedPath(
+      project.source.background.projectPath,
+      process.cwd(),
+      'source.background.projectPath',
+    )
+    const pathEntries = collectPersistedPaths(project)
+
+    await Promise.all(
+      pathEntries.map(({ path, subject }) => resolveAllowedPath(path, sourceProjectPath, subject)),
+    )
+  }
+
+  function serializeSave<T>(projectId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = saveTails.get(projectId) ?? Promise.resolve()
+    const current = previous.catch(() => undefined).then(operation)
+    const completion = current.then(
+      () => undefined,
+      () => undefined,
+    )
+    saveTails.set(projectId, completion)
+
+    return current.finally(() => {
+      if (saveTails.get(projectId) === completion) {
+        saveTails.delete(projectId)
+      }
+    })
+  }
 
   function projectFile(id: string): string {
     assertProjectId(id)
@@ -155,13 +269,22 @@ export function createProjectRepository(projectRoot: string, allowedSourceRoots:
 
     async save(project) {
       const parsedProject = parseCourseProject(project)
-      const file = projectFile(parsedProject.id)
-      const temporaryFile = `${file}.tmp`
-      await mkdir(resolve(file, '..'), { recursive: true })
-      await writeFile(temporaryFile, `${JSON.stringify(parsedProject, null, 2)}\n`, 'utf8')
-      await rename(temporaryFile, file)
+      await validatePersistedPaths(parsedProject)
 
-      return parsedProject
+      return serializeSave(parsedProject.id, async () => {
+        const file = projectFile(parsedProject.id)
+        const temporaryFile = join(dirname(file), `${basename(file)}.${randomUUID()}.tmp`)
+        await fileSystem.mkdir(dirname(file), { recursive: true })
+
+        try {
+          await fileSystem.writeFile(temporaryFile, `${JSON.stringify(parsedProject, null, 2)}\n`, 'utf8')
+          await fileSystem.rename(temporaryFile, file)
+        } finally {
+          await fileSystem.rm(temporaryFile, { force: true }).catch(() => undefined)
+        }
+
+        return parsedProject
+      })
     },
   }
 }

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, readdir, rm, writeFile } from 'node:fs/promises'
 import type { Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,32 +9,63 @@ import type { CourseProjectV2 } from '../../src/features/remotion-course-workben
 import { createWorkbenchServer, type WorkbenchErrorBody } from './app.js'
 import { createProjectRepository } from './projectRepository.js'
 
-const validProject: CourseProjectV2 = {
-  version: 2,
-  id: 'codex-keyframes-tutorial',
-  title: 'Codex Keyframes Tutorial',
-  fps: 30,
-  activeAspectRatio: '9:16',
-  source: {
-    background: {
-      id: 'hf-codex-keyframes-tutorial',
-      projectPath: '/projects/codex-keyframes-tutorial',
-      entryHtml: 'index.html',
-      assetsDir: 'assets',
-      sourceAspectRatio: '9:16',
-    },
-    bakedAnimations: [],
-  },
-  actionTemplates: [],
-  actionInstances: [],
-}
-
 const temporaryPaths: string[] = []
 
 async function createTemporaryDirectory(prefix: string): Promise<string> {
   const path = await mkdtemp(join(tmpdir(), prefix))
   temporaryPaths.push(path)
   return path
+}
+
+async function createSourceProject(): Promise<string> {
+  const sourceRoot = await createTemporaryDirectory('course-workbench-sources-')
+  const sourceProject = join(sourceRoot, 'codex-keyframes-tutorial')
+  await mkdir(join(sourceProject, 'assets'), { recursive: true })
+  await mkdir(join(sourceProject, 'actions'), { recursive: true })
+  await writeFile(join(sourceProject, 'index.html'), '<main>Course</main>')
+  await writeFile(join(sourceProject, 'actions', 'circle.ts'), 'export {}')
+  return realpath(sourceProject)
+}
+
+function createValidProject(sourceProject: string, title = 'Codex Keyframes Tutorial'): CourseProjectV2 {
+  return {
+    version: 2,
+    id: 'codex-keyframes-tutorial',
+    title,
+    fps: 30,
+    activeAspectRatio: '9:16',
+    source: {
+      background: {
+        id: 'hf-codex-keyframes-tutorial',
+        projectPath: sourceProject,
+        entryHtml: 'index.html',
+        assetsDir: 'assets',
+        sourceAspectRatio: '9:16',
+      },
+      bakedAnimations: [],
+    },
+    actionTemplates: [
+      {
+        id: 'circle-mark',
+        name: 'Red Circle',
+        category: 'circle',
+        description: 'Marks an important title.',
+        status: 'ready',
+        version: '1.0.0',
+        defaultDurationFrames: 80,
+        params: {},
+        presets: [],
+        implementation: {
+          mode: 'custom-component',
+          intent: 'Marks an important title.',
+          componentContract: 'Render a circle from typed params.',
+          outputFiles: ['actions/circle.ts'],
+          acceptance: ['Preview reflects params immediately'],
+        },
+      },
+    ],
+    actionInstances: [],
+  }
 }
 
 async function listen(server: Server): Promise<string> {
@@ -61,7 +92,9 @@ afterEach(async () => {
 describe('project repository', () => {
   it('writes project.json atomically and reloads it', async () => {
     const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
-    const repo = createProjectRepository(projectRoot)
+    const sourceProject = await createSourceProject()
+    const validProject = createValidProject(sourceProject)
+    const repo = createProjectRepository(projectRoot, [sourceProject])
 
     await repo.save(validProject)
 
@@ -89,14 +122,118 @@ describe('project repository', () => {
 
     await expect(repo.importPath(sourceProject)).resolves.toBe(await realpath(sourceProject))
   })
+
+  it('rejects saves when persisted source paths escape configured roots', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const outsideRoot = await createTemporaryDirectory('course-workbench-outside-')
+    await mkdir(join(outsideRoot, 'assets'))
+    await mkdir(join(outsideRoot, 'actions'))
+    await writeFile(join(outsideRoot, 'index.html'), '<main>Outside</main>')
+    await writeFile(join(outsideRoot, 'actions', 'circle.ts'), 'export {}')
+    const repo = createProjectRepository(projectRoot, [sourceProject])
+    const illegalPaths = [
+      (project: CourseProjectV2) => {
+        project.source.background.projectPath = outsideRoot
+      },
+      (project: CourseProjectV2) => {
+        project.source.background.entryHtml = join(outsideRoot, 'index.html')
+      },
+      (project: CourseProjectV2) => {
+        project.source.background.assetsDir = join(outsideRoot, 'assets')
+      },
+      (project: CourseProjectV2) => {
+        project.actionTemplates[0].implementation.outputFiles = [join(outsideRoot, 'actions', 'circle.ts')]
+      },
+    ]
+
+    for (const setIllegalPath of illegalPaths) {
+      const project = createValidProject(sourceProject)
+      setIllegalPath(project)
+
+      await expect(repo.save(project)).rejects.toMatchObject({
+        code: 'PERSISTED_PATH_NOT_ALLOWED',
+      })
+    }
+  })
+
+  it('removes its unique temporary file when rename fails', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const repo = createProjectRepository(projectRoot, [sourceProject], {
+      rename: async () => {
+        throw new Error('simulated rename failure')
+      },
+    })
+
+    await expect(repo.save(createValidProject(sourceProject))).rejects.toThrow('simulated rename failure')
+
+    const projectDirectory = join(projectRoot, 'codex-keyframes-tutorial')
+    await expect(readdir(projectDirectory)).resolves.not.toContainEqual(expect.stringMatching(/\.tmp$/))
+  })
+
+  it('removes its unique temporary file when write fails', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const repo = createProjectRepository(projectRoot, [sourceProject], {
+      writeFile: async (file, data) => {
+        await writeFile(file, data)
+        throw new Error('simulated write failure')
+      },
+    })
+
+    await expect(repo.save(createValidProject(sourceProject))).rejects.toThrow('simulated write failure')
+
+    const projectDirectory = join(projectRoot, 'codex-keyframes-tutorial')
+    await expect(readdir(projectDirectory)).resolves.not.toContainEqual(expect.stringMatching(/\.tmp$/))
+  })
+
+  it('serializes concurrent saves for the same project', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    let releaseFirstWrite: (() => void) | undefined
+    let signalFirstWrite: (() => void) | undefined
+    const firstWriteReleased = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve
+    })
+    const firstWriteStarted = new Promise<void>((resolve) => {
+      signalFirstWrite = resolve
+    })
+    const writeTitles: string[] = []
+    const repo = createProjectRepository(projectRoot, [sourceProject], {
+      writeFile: async (file, data) => {
+        const content = String(data)
+        writeTitles.push(content.includes('First save') ? 'first' : 'second')
+
+        if (writeTitles.length === 1) {
+          signalFirstWrite!()
+          await firstWriteReleased
+        }
+
+        await writeFile(file, data)
+      },
+    })
+    const firstSave = repo.save(createValidProject(sourceProject, 'First save'))
+
+    await firstWriteStarted
+    const secondSave = repo.save(createValidProject(sourceProject, 'Second save'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(writeTitles).toEqual(['first'])
+    releaseFirstWrite!()
+    await Promise.all([firstSave, secondSave])
+    await expect(repo.load('codex-keyframes-tutorial')).resolves.toMatchObject({ title: 'Second save' })
+  })
 })
 
 describe('workbench server', () => {
   it('serves JSON health and project routes through WorkbenchClient', async () => {
     const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const validProject = createValidProject(sourceProject)
     const server = createWorkbenchServer({
       projectRoot,
-      allowedSourceRoots: [projectRoot],
+      allowedSourceRoots: [sourceProject],
       port: 0,
       agentProvider: 'mock',
     })
@@ -118,9 +255,11 @@ describe('workbench server', () => {
 
   it('returns a structured error when the route id does not match the saved project', async () => {
     const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const validProject = createValidProject(sourceProject)
     const server = createWorkbenchServer({
       projectRoot,
-      allowedSourceRoots: [projectRoot],
+      allowedSourceRoots: [sourceProject],
       port: 0,
       agentProvider: 'mock',
     })
