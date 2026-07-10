@@ -32,52 +32,38 @@ export const layoutVariantSchema = z.object({
   '9:16': layoutOverrideSchema.optional(),
 })
 
-const templateInstanceOnlyFields = new Set([
-  'fromFrame',
-  'durationFrames',
-  'dragX',
-  'dragY',
-  'x',
-  'y',
-  'left',
-  'top',
-  'right',
-  'bottom',
-  'width',
-  'height',
-  'position',
-  'layoutByAspect',
-  'layoutOverride',
-  'layoutOverrides',
-  'anchor',
-  'inset',
-  'offset',
-])
+const actionParamsSchema = z.record(z.string(), z.unknown())
 
-function isTemplateInstanceOnlyField(key: string): boolean {
-  return templateInstanceOnlyFields.has(key) || /^(drag|position|layout|anchor|inset|offset)/.test(key)
-}
+const actionPresetSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  params: actionParamsSchema,
+})
+
+const actionImplementationSchema = z.object({
+  mode: z.enum(['parametric', 'llm-assisted', 'custom-component']),
+  intent: z.string().min(1),
+  componentContract: z.string().min(1),
+  outputFiles: z.array(z.string().min(1)),
+  acceptance: z.array(z.string().min(1)),
+})
 
 export const actionTemplateSchema = z.object({
   id: z.string().min(1),
-  version: z.string().min(1),
   name: z.string().min(1),
   category: z.string().min(1),
+  source: z.enum(['manual', 'hyperframes']).optional(),
+  selector: z.string().min(1).optional(),
+  actionSignature: z.string().min(1).optional(),
+  description: z.string().min(1),
+  status: z.enum(['draft', 'ready', 'deprecated']),
+  version: z.string().min(1),
   defaultDurationFrames: z.number().int().positive(),
-  defaultParams: z.record(z.string(), z.unknown()).default({}),
+  params: actionParamsSchema,
+  presets: z.array(actionPresetSchema),
+  implementation: actionImplementationSchema,
 })
-  .passthrough()
-  .superRefine((template, context) => {
-    Object.keys(template).forEach((key) => {
-      if (isTemplateInstanceOnlyField(key)) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [key],
-          message: `${key} belongs to action instances, not templates`,
-        })
-      }
-    })
-  })
+  .strict()
 
 export const actionInstanceSchema = z.object({
   id: z.string().min(1),

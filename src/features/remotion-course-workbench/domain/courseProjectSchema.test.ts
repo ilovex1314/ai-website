@@ -32,8 +32,19 @@ const validFixture = {
       version: '1.0.0',
       name: 'Red Circle',
       category: 'circle',
+      source: 'manual',
+      description: 'Marks an important title.',
+      status: 'ready',
       defaultDurationFrames: 80,
-      defaultParams: { color: '#ef4444', radius: 18 },
+      params: { color: '#ef4444', radius: 18 },
+      presets: [{ id: 'warning-circle', label: 'Warning Circle', params: { color: '#ef4444' } }],
+      implementation: {
+        mode: 'parametric',
+        intent: 'Marks an important title.',
+        componentContract: 'Render a circle from typed params.',
+        outputFiles: ['actions.json'],
+        acceptance: ['Preview reflects params immediately'],
+      },
     },
   ],
   actionInstances: [
@@ -187,6 +198,23 @@ describe('CourseProjectV2 schema', () => {
     ).toThrow(/x|y/)
   })
 
+  it('rejects unrecognised timing and transform fields stored on templates', () => {
+    expect(() =>
+      parseCourseProject({
+        ...validFixture,
+        actionTemplates: [
+          {
+            ...validFixture.actionTemplates[0],
+            startFrame: 12,
+            duration: 80,
+            translateX: 24,
+            transform: 'translateX(24px)',
+          },
+        ],
+      }),
+    ).toThrow(/startFrame|duration|translateX|transform/)
+  })
+
   it('rejects baked animations as exportable overlays', () => {
     expect(() => parseCourseProject(invalidBakedFixture)).toThrow(/baked-internal/)
   })
@@ -274,7 +302,7 @@ describe('CourseProjectV2 schema', () => {
     expect(project.actionTemplates).toHaveLength(1)
     expect(project.actionTemplates[0]).toMatchObject({
       id: 'circle-mark',
-      defaultParams: { color: '#ef4444', radius: 18 },
+      params: { color: '#ef4444', radius: 18 },
       description: 'Marks an important part of a slide.',
       presets: [{ id: 'warning-circle', label: 'Warning Circle', params: { color: '#ef4444' } }],
       implementation: {
@@ -302,7 +330,7 @@ describe('CourseProjectV2 schema', () => {
 
     expect(project.actionInstances[1].fromFrame).toBe(220)
     expect(project.actionInstances[1].params.color).toBe('#16a34a')
-    expect(project.actionTemplates[0].defaultParams.color).toBe('#ef4444')
+    expect(project.actionTemplates[0].params.color).toBe('#ef4444')
   })
 
   it('deeply clones nested legacy params for every migrated instance', () => {

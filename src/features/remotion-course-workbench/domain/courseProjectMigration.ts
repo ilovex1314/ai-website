@@ -74,19 +74,24 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
   const legacyBackground = asRecord(legacyStage.backgroundSource, 'stage.backgroundSource')
   const legacyActions = asArray(state.actions, 'actions').map((action, index) => {
     const legacyAction = asRecord(action, `actions[${index}]`)
-    const { params, ...legacyTemplate } = legacyAction
 
     return {
-      ...legacyTemplate,
       id: asString(legacyAction.id, `actions[${index}].id`),
-      version: asString(legacyAction.version, `actions[${index}].version`),
       name: asString(legacyAction.name, `actions[${index}].name`),
       category: asString(legacyAction.category, `actions[${index}].category`),
+      source: legacyAction.source,
+      selector: legacyAction.selector,
+      actionSignature: legacyAction.actionSignature,
+      description: asString(legacyAction.description, `actions[${index}].description`),
+      status: legacyAction.status,
+      version: asString(legacyAction.version, `actions[${index}].version`),
       defaultDurationFrames: asPositiveInteger(
         legacyAction.defaultDurationFrames,
         `actions[${index}].defaultDurationFrames`,
       ),
-      defaultParams: cloneParams(params),
+      params: cloneParams(legacyAction.params),
+      presets: legacyAction.presets,
+      implementation: legacyAction.implementation,
     }
   })
 
