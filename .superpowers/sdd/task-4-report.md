@@ -160,6 +160,10 @@ Fresh real fixture copy:
 
 Add RED/GREEN regressions for output-directory/leaf symlinks, legitimately hidden target scenes, and CSS-special IDs. Run focused tests, real fixture import, build, commit Task 4 files, append evidence and commit hash.
 
+## Closure Finding To Fix
+
+Foreground upload must also reject symlinked `sources/source-manifest.json` and `sources/media-manifest.json` leaves. Resolve both with project artifact containment and `rejectSymlinks`, write with no-follow semantics immediately before access, and add API regressions proving external targets remain unchanged.
+
 ## Final Re-review Fix Evidence
 
 Final implementation commit: `e452d33` (`修复：完成 Task 4 最终审查项`)
@@ -202,3 +206,15 @@ Live real fixture copy:
 - Selectors: all 33 persisted selectors resolved uniquely against the migrated HTML.
 - Copied source validator result: `VALID`.
 - Original source SHA-256 remained `c77ba1bb0ac4b60ce41c33d266493f56bdb1da92637656be0a68bb33997ac341`.
+
+## Closure Fix Evidence
+
+Closure implementation commit: `c5458f8` (`修复：保护前台上传清单文件`)
+
+- RED: foreground uploads with symlinked `sources/source-manifest.json` or `sources/media-manifest.json` leaves returned HTTP 201 and overwrote external targets.
+- GREEN: both API cases return `PROJECT_ARTIFACT_PATH_NOT_ALLOWED`; external sentinel files remain unchanged and no foreground media file is published.
+- Upload ancestor checks retain the established `FOREGROUND_PATH_NOT_ALLOWED` error contract.
+- Both manifest leaves are resolved through project artifact containment before upload acceptance and re-resolved immediately before access.
+- Both manifest writes use the shared `O_NOFOLLOW` write primitive.
+- Focused verification: 5 test files passed, 84 tests passed, 0 failed.
+- Production build: TypeScript and Vite passed; only the existing bundle-size advisory remains.
