@@ -36,11 +36,19 @@ export type AppliedHyperframesMigration = {
   validation: Awaited<ReturnType<typeof validateHyperframesContract>>
 }
 
+export type HyperframesMigrationDependencies = {
+  writeFile?: (path: string, data: string) => Promise<void>
+}
+
 export class HyperframesMigrationError extends Error {
-  readonly code: 'HYPERFRAMES_MIGRATION_UNRESOLVED' | 'HYPERFRAMES_MIGRATION_VALIDATION_FAILED'
+  readonly code:
+    | 'HYPERFRAMES_MIGRATION_UNRESOLVED'
+    | 'HYPERFRAMES_MIGRATION_VALIDATION_FAILED'
+    | 'HYPERFRAMES_MIGRATION_APPLY_FAILED'
   readonly summary?: HyperframesMigrationPlan['summary']
   readonly backupPath?: string
   readonly validation?: Awaited<ReturnType<typeof validateHyperframesContract>>
+  rollbackErrors?: string[]
 
   constructor(input: {
     code: HyperframesMigrationError['code']
@@ -48,6 +56,7 @@ export class HyperframesMigrationError extends Error {
     summary?: HyperframesMigrationPlan['summary']
     backupPath?: string
     validation?: Awaited<ReturnType<typeof validateHyperframesContract>>
+    rollbackErrors?: string[]
   }) {
     super(input.message)
     this.name = 'HyperframesMigrationError'
@@ -55,6 +64,7 @@ export class HyperframesMigrationError extends Error {
     this.summary = input.summary
     this.backupPath = input.backupPath
     this.validation = input.validation
+    this.rollbackErrors = input.rollbackErrors
   }
 }
 
@@ -208,7 +218,10 @@ export async function planHyperframesMigration(root: string): Promise<Hyperframe
   }
 }
 
-export async function applyHyperframesMigration(plan: HyperframesMigrationPlan): Promise<AppliedHyperframesMigration> {
+export async function applyHyperframesMigration(
+  plan: HyperframesMigrationPlan,
+  dependencies: HyperframesMigrationDependencies = {},
+): Promise<AppliedHyperframesMigration> {
   if (plan.summary.unresolved > 0) {
     throw new HyperframesMigrationError({
       code: 'HYPERFRAMES_MIGRATION_UNRESOLVED',
@@ -238,36 +251,66 @@ export async function applyHyperframesMigration(plan: HyperframesMigrationPlan):
     }
   }
 
-  if (htmlChanged) {
-    await writeFile(plan.htmlPath, plan.html)
-  }
+  const restore = async (): Promise<string[]> => {
+    const rollbackErrors: string[] = []
 
-  if (plan.manifestChanged) {
-    await writeFile(plan.manifestPath, JSON.stringify(plan.manifest, null, 2) + '\n')
-  }
-
-  const validation = await validateHyperframesContract(plan.root)
-
-  if (!validation.valid) {
     if (htmlChanged) {
-      await copyFile(join(backupPath, 'index.html'), plan.htmlPath)
-    }
-
-    if (plan.manifestChanged) {
-      if (manifestExisted) {
-        await copyFile(join(backupPath, 'animation-manifest.json'), plan.manifestPath)
-      } else {
-        await rm(plan.manifestPath, { force: true })
+      try {
+        await copyFile(join(backupPath, 'index.html'), plan.htmlPath)
+      } catch (error) {
+        rollbackErrors.push('Unable to restore index.html: ' + String(error))
       }
     }
 
-    throw new HyperframesMigrationError({
-      code: 'HYPERFRAMES_MIGRATION_VALIDATION_FAILED',
-      message: 'Migrated HyperFrames source failed validation: ' + validation.errors.join('; '),
-      backupPath,
-      validation,
-    })
+    if (plan.manifestChanged) {
+      try {
+        if (manifestExisted) {
+          await copyFile(join(backupPath, 'animation-manifest.json'), plan.manifestPath)
+        } else {
+          await rm(plan.manifestPath, { force: true })
+        }
+      } catch (error) {
+        rollbackErrors.push('Unable to restore animation-manifest.json: ' + String(error))
+      }
+    }
+
+    return rollbackErrors
   }
 
-  return { backupPath, validation }
+  try {
+    if (htmlChanged) {
+      await (dependencies.writeFile ?? writeFile)(plan.htmlPath, plan.html)
+    }
+
+    if (plan.manifestChanged) {
+      await (dependencies.writeFile ?? writeFile)(plan.manifestPath, JSON.stringify(plan.manifest, null, 2) + '\n')
+    }
+
+    const validation = await validateHyperframesContract(plan.root)
+
+    if (!validation.valid) {
+      throw new HyperframesMigrationError({
+        code: 'HYPERFRAMES_MIGRATION_VALIDATION_FAILED',
+        message: 'Migrated HyperFrames source failed validation: ' + validation.errors.join('; '),
+        backupPath,
+        validation,
+      })
+    }
+
+    return { backupPath, validation }
+  } catch (error) {
+    const rollbackErrors = await restore()
+
+    if (error instanceof HyperframesMigrationError) {
+      error.rollbackErrors = rollbackErrors
+      throw error
+    }
+
+    throw new HyperframesMigrationError({
+      code: 'HYPERFRAMES_MIGRATION_APPLY_FAILED',
+      message: 'Migrated HyperFrames source failed after backup: ' + String(error),
+      backupPath,
+      rollbackErrors,
+    })
+  }
 }

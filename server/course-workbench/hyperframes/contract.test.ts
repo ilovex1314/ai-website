@@ -143,6 +143,35 @@ describe('HyperFrames source contract', () => {
     await expect(access(join(legacyFixture.root, 'animation-manifest.json'))).rejects.toThrow()
   })
 
+  it('restores exact source bytes after an injected post-backup manifest write failure', async () => {
+    const legacyFixture = await createLegacyFixture()
+    const manifestPath = join(legacyFixture.root, 'animation-manifest.json')
+    await writeFile(manifestPath, '{"legacy":true}\n')
+    const originalHtml = await readFile(legacyFixture.html, 'utf8')
+    const originalManifest = await readFile(manifestPath, 'utf8')
+    const plan = await planHyperframesMigration(legacyFixture.root)
+    let writes = 0
+
+    await expect(
+      applyHyperframesMigration(plan, {
+        writeFile: async (path, data) => {
+          writes += 1
+
+          if (writes === 2) {
+            throw new Error('injected manifest write failure')
+          }
+
+          await writeFile(path, data)
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'HYPERFRAMES_MIGRATION_APPLY_FAILED',
+      backupPath: expect.stringMatching(/\.workbench-backup\//),
+    })
+    await expect(readFile(legacyFixture.html, 'utf8')).resolves.toBe(originalHtml)
+    await expect(readFile(manifestPath, 'utf8')).resolves.toBe(originalManifest)
+  })
+
   it('rejects extra manifest, scene, and animation fields', async () => {
     const root = await createTemporaryDirectory('hyperframes-extra-fields-')
     await writeFile(
