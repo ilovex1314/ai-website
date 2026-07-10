@@ -2,6 +2,7 @@ import { useMemo, useReducer } from 'react'
 import { CodexHandoffPanel } from './CodexHandoffPanel'
 import { CourseActionEditor } from './CourseActionEditor'
 import { CourseAnimationLibraryPanel } from './CourseAnimationLibraryPanel'
+import { CourseProjectIntake } from './CourseProjectIntake'
 import { createDefaultCourseWorkbenchState } from './courseWorkbenchData'
 import {
   buildCapCutHandoffPackage,
@@ -92,42 +93,20 @@ export function RemotionCourseWorkbench() {
 
       <section className="course-workbench__layout" aria-label="课程动画制作台工作区">
         <aside className="course-workbench__sidebar">
-          <section className="course-card course-card--media-intake">
-            <div className="course-card__header">
-              <p>Intake</p>
-              <span>{state.stage.backgroundSource.structureStatus.status}</span>
-            </div>
-            <h2>Media Intake</h2>
-            <div className="media-intake-grid">
-              <div className="media-intake-card">
-                <small>后台区</small>
-                <strong>HyperFrames Project</strong>
-                <span>{state.stage.backgroundSource.projectPath}</span>
-                <span data-testid="case-duration">
-                  {Math.round(state.playback.totalFrames / state.project.fps)}s · {state.playback.totalFrames}f
-                </span>
-                <button type="button">导入 HyperFrames 文件夹</button>
-                <em>audio: {state.stage.backgroundSource.audioPolicy}</em>
-              </div>
-              <div className="media-intake-card">
-                <small>前台区</small>
-                <strong>{state.stage.foregroundSource.name}</strong>
-                <span>{state.stage.foregroundSource.path}</span>
-                <button type="button">上传口播视频</button>
-                <em>audio: {state.stage.foregroundSource.audioPolicy}</em>
-              </div>
-              <div className="media-structure-status" aria-label="HyperFrames 结构化状态">
-                <span>{state.stage.backgroundSource.structureStatus.scenesParsed} scenes parsed</span>
-                <span>{state.stage.backgroundSource.structureStatus.elementsParsed} elements parsed</span>
-                <span>
-                  {state.stage.backgroundSource.structureStatus.animationsDetected} animations detected
-                </span>
-                <span>
-                  {state.stage.backgroundSource.structureStatus.missingActionsCreated} missing actions created
-                </span>
-              </div>
-            </div>
-          </section>
+          <CourseProjectIntake
+            projectPath={state.stage.backgroundSource.projectPath}
+            durationLabel={`${Math.round(state.playback.totalFrames / state.project.fps)}s · ${state.playback.totalFrames}f`}
+            foregroundName={state.stage.foregroundSource.name}
+            foregroundPath={state.stage.foregroundSource.path}
+            backgroundAudioPolicy={state.stage.backgroundSource.audioPolicy}
+            foregroundAudioPolicy={state.stage.foregroundSource.audioPolicy}
+            structure={{
+              scenes: state.stage.backgroundSource.structureStatus.scenesParsed,
+              elements: state.stage.backgroundSource.structureStatus.elementsParsed,
+              animations: state.stage.backgroundSource.structureStatus.animationsDetected,
+              missingActions: state.stage.backgroundSource.structureStatus.missingActionsCreated,
+            }}
+          />
           <CourseTimelinePanel
             timeline={state.timeline}
             actions={state.actions}

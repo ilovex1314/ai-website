@@ -1,7 +1,15 @@
+import { randomUUID } from 'node:crypto'
+import { createWriteStream } from 'node:fs'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { join, relative, resolve } from 'node:path'
+import { Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { ZodError } from 'zod'
 import { parseCourseProject, type CourseProjectV2 } from '../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
 import type { WorkbenchConfig } from './config.js'
+import { importHyperframesProject } from './hyperframes/importer.js'
+import { probeMedia } from './mediaProbe.js'
 import {
   createProjectRepository,
   WorkbenchServiceError,
@@ -82,6 +90,172 @@ function projectIdFromPath(pathname: string): string | undefined {
   }
 }
 
+function foregroundProjectIdFromPath(pathname: string): string | undefined {
+  const match = /^\/api\/projects\/([^/]+)\/foreground$/.exec(pathname)
+
+  if (!match) {
+    return undefined
+  }
+
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return undefined
+  }
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
+function importRequest(value: unknown): {
+  sourcePath: string
+  applyMetadata?: boolean
+  aspects?: Array<'16:9' | '4:3' | '9:16'>
+} {
+  const body = record(value)
+  const sourcePath = body?.sourcePath
+  const applyMetadata = body?.applyMetadata
+  const aspects = body?.aspects
+  const validAspects = ['16:9', '4:3', '9:16'] as const
+
+  if (
+    typeof sourcePath !== 'string'
+    || (applyMetadata !== undefined && typeof applyMetadata !== 'boolean')
+    || (aspects !== undefined && (
+      !Array.isArray(aspects)
+      || aspects.some((aspect) => !validAspects.includes(aspect as typeof validAspects[number]))
+    ))
+  ) {
+    throw new WorkbenchServiceError({
+      code: 'INVALID_IMPORT_REQUEST',
+      stage: 'import',
+      message: 'HyperFrames import request is invalid',
+      recovery: 'Send sourcePath, optional applyMetadata, and declared 16:9, 4:3, or 9:16 aspects.',
+    })
+  }
+
+  return {
+    sourcePath,
+    ...(applyMetadata === undefined ? {} : { applyMetadata }),
+    ...(aspects === undefined ? {} : { aspects: aspects as Array<'16:9' | '4:3' | '9:16'> }),
+  }
+}
+
+async function readManifest(path: string): Promise<Record<string, unknown>> {
+  try {
+    return record(JSON.parse(await readFile(path, 'utf8'))) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+function uploadFileName(request: IncomingMessage): string {
+  const contentType = request.headers['content-type']
+  const encodedValue = request.headers['x-file-name']
+  let value: string | undefined
+
+  try {
+    value = typeof encodedValue === 'string' ? decodeURIComponent(encodedValue) : undefined
+  } catch {
+    value = undefined
+  }
+
+  if (
+    (contentType !== 'application/octet-stream' && !contentType?.startsWith('video/'))
+    || typeof value !== 'string'
+    || value.length === 0
+    || value === '.'
+    || value === '..'
+    || value.includes('/')
+    || value.includes('\\')
+  ) {
+    throw new WorkbenchServiceError({
+      code: 'FILE_UPLOAD_REQUIRED',
+      stage: 'import',
+      message: 'Foreground media must be uploaded as binary file content',
+      recovery: 'Choose a local video file in the intake UI instead of submitting a filesystem path.',
+    })
+  }
+
+  return value
+}
+
+async function receiveForeground(
+  request: IncomingMessage,
+  config: WorkbenchConfig,
+  project: CourseProjectV2,
+): Promise<{ relativePath: string; metadata: Awaited<ReturnType<typeof probeMedia>> }> {
+  const fileName = uploadFileName(request)
+  const projectDirectory = resolve(config.projectRoot, project.id)
+  const uploadDirectory = resolve(projectDirectory, 'sources', 'foreground')
+  const destination = resolve(uploadDirectory, fileName)
+  const pathFromProject = relative(projectDirectory, destination)
+
+  if (pathFromProject.startsWith('..')) {
+    throw new WorkbenchServiceError({
+      code: 'FOREGROUND_PATH_NOT_ALLOWED',
+      stage: 'import',
+      message: 'Foreground upload destination escaped the course project',
+      subject: fileName,
+      recovery: 'Upload a file with a plain filename and supported video extension.',
+    })
+  }
+
+  await mkdir(uploadDirectory, { recursive: true })
+  const temporary = `${destination}.${randomUUID()}.tmp`
+  let size = 0
+  const limiter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      size += chunk.length
+
+      if (size > 2 * 1024 * 1024 * 1024) {
+        callback(new Error('Foreground upload exceeds 2 GB'))
+        return
+      }
+
+      callback(null, chunk)
+    },
+  })
+
+  try {
+    await pipeline(request, limiter, createWriteStream(temporary, { flags: 'wx' }))
+
+    if (size === 0) {
+      throw new WorkbenchServiceError({
+        code: 'FILE_UPLOAD_REQUIRED',
+        stage: 'import',
+        message: 'Foreground media upload was empty',
+        recovery: 'Choose a non-empty local video file and upload it again.',
+      })
+    }
+
+    const metadata = await probeMedia(temporary)
+    await rename(temporary, destination)
+    const relativePath = pathFromProject.replaceAll('\\', '/')
+    const sourceManifestPath = join(projectDirectory, 'sources', 'source-manifest.json')
+    const mediaManifestPath = join(projectDirectory, 'sources', 'media-manifest.json')
+    const sourceManifest = await readManifest(sourceManifestPath)
+    const mediaManifest = await readManifest(mediaManifestPath)
+    const foreground = { relativePath, metadata }
+    await Promise.all([
+      writeFile(
+        sourceManifestPath,
+        `${JSON.stringify({ ...sourceManifest, background: project.source.background, foreground }, null, 2)}\n`,
+      ),
+      writeFile(
+        mediaManifestPath,
+        `${JSON.stringify({ ...mediaManifest, foreground }, null, 2)}\n`,
+      ),
+    ])
+    return foreground
+  } finally {
+    await rm(temporary, { force: true }).catch(() => undefined)
+  }
+}
+
 function errorResponse(error: unknown): { statusCode: number; body: WorkbenchErrorBody } {
   if (error instanceof WorkbenchServiceError) {
     return {
@@ -126,6 +300,7 @@ export function createWorkbenchServer(config: WorkbenchConfig): Server {
     const method = request.method ?? 'GET'
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
     const projectId = projectIdFromPath(url.pathname)
+    const foregroundProjectId = foregroundProjectIdFromPath(url.pathname)
 
     try {
       if (method === 'GET' && url.pathname === '/api/health') {
@@ -135,6 +310,24 @@ export function createWorkbenchServer(config: WorkbenchConfig): Server {
 
       if (method === 'GET' && url.pathname === '/api/projects') {
         sendJson(response, 200, { projects: await repository.list() })
+        return
+      }
+
+      if (method === 'POST' && url.pathname === '/api/imports/hyperframes') {
+        const body = importRequest(await readJson(request))
+        const result = await importHyperframesProject({
+          ...body,
+          projectRoot: config.projectRoot,
+          allowedSourceRoots: config.allowedSourceRoots,
+        })
+        sendJson(response, result.status === 'ready' ? 201 : 200, result)
+        return
+      }
+
+      if (method === 'POST' && foregroundProjectId !== undefined) {
+        const project = await repository.load(foregroundProjectId)
+        const foreground = await receiveForeground(request, config, project)
+        sendJson(response, 201, { foreground })
         return
       }
 

@@ -1,8 +1,10 @@
+import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, mkdir, realpath, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, realpath, readdir, rm, writeFile } from 'node:fs/promises'
 import type { Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WorkbenchClient } from '../../src/features/remotion-course-workbench/api/workbenchClient.js'
 import type { CourseProjectV2 } from '../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
@@ -10,6 +12,7 @@ import { createWorkbenchServer, type WorkbenchErrorBody } from './app.js'
 import { createProjectRepository } from './projectRepository.js'
 
 const temporaryPaths: string[] = []
+const execFileAsync = promisify(execFile)
 
 async function createTemporaryDirectory(prefix: string): Promise<string> {
   const path = await mkdtemp(join(tmpdir(), prefix))
@@ -25,6 +28,42 @@ async function createSourceProject(): Promise<string> {
   await writeFile(join(sourceProject, 'index.html'), '<main>Course</main>')
   await writeFile(join(sourceProject, 'actions', 'circle.ts'), 'export {}')
   return realpath(sourceProject)
+}
+
+async function createLegacyHyperframesSource(): Promise<{ sourceProject: string; sourceRoot: string }> {
+  const sourceRoot = await createTemporaryDirectory('course-workbench-hyperframes-')
+  const sourceProject = join(sourceRoot, 'legacy-course')
+  await mkdir(join(sourceProject, 'assets'), { recursive: true })
+  await writeFile(
+    join(sourceProject, 'index.html'),
+    '<!doctype html><html><body><div data-composition-id="main" data-width="1080" data-height="1920"><section><h1>Legacy title</h1></section></div></body></html>',
+  )
+  return { sourceProject: await realpath(sourceProject), sourceRoot }
+}
+
+async function createForegroundMedia(): Promise<{ bytes: Buffer; name: string }> {
+  const root = await createTemporaryDirectory('course-workbench-foreground-')
+  const path = join(root, 'speaker.mp4')
+  await execFileAsync('ffmpeg', [
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=black:s=320x240:r=30:d=0.25',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:duration=0.25',
+    '-shortest',
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    path,
+  ])
+  return { bytes: await readFile(path), name: 'speaker.mp4' }
 }
 
 function createValidProject(sourceProject: string, title = 'Codex Keyframes Tutorial'): CourseProjectV2 {
@@ -288,4 +327,115 @@ describe('workbench server', () => {
       await close(server)
     }
   })
+
+  it('returns migration-required before applying metadata and persists the confirmed import', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const { sourceProject, sourceRoot } = await createLegacyHyperframesSource()
+    const htmlBefore = await readFile(join(sourceProject, 'index.html'), 'utf8')
+    const server = createWorkbenchServer({
+      projectRoot,
+      allowedSourceRoots: [sourceRoot],
+      port: 0,
+      agentProvider: 'mock',
+    })
+    const baseUrl = await listen(server)
+
+    try {
+      const scanResponse = await fetch(`${baseUrl}/api/imports/hyperframes`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sourcePath: sourceProject }),
+      })
+      expect(scanResponse.status).toBe(200)
+      await expect(scanResponse.json()).resolves.toMatchObject({
+        status: 'migration-required',
+        migrationReport: {
+          applied: false,
+          summary: { recognized: 0, unresolved: 0 },
+        },
+      })
+      expect(await readFile(join(sourceProject, 'index.html'), 'utf8')).toBe(htmlBefore)
+
+      const applyResponse = await fetch(`${baseUrl}/api/imports/hyperframes`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sourcePath: sourceProject, applyMetadata: true, aspects: ['9:16'] }),
+      })
+      expect(applyResponse.status).toBe(201)
+      await expect(applyResponse.json()).resolves.toMatchObject({
+        status: 'ready',
+        project: { id: 'legacy-course', actionInstances: [] },
+        migrationReport: { applied: true },
+      })
+      expect(await readFile(join(sourceProject, 'index.html'), 'utf8')).toContain('data-hf-element-id=')
+      expect(existsSync(join(projectRoot, 'legacy-course', 'project.json'))).toBe(true)
+    } finally {
+      await close(server)
+    }
+  }, 30_000)
+
+  it('contains and probes foreground uploads before updating source manifests', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const server = createWorkbenchServer({
+      projectRoot,
+      allowedSourceRoots: [sourceProject],
+      port: 0,
+      agentProvider: 'mock',
+    })
+    const baseUrl = await listen(server)
+
+    try {
+      const project = createValidProject(sourceProject)
+      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(project),
+      })
+      expect(createResponse.status).toBe(201)
+      const foreground = await createForegroundMedia()
+      const uploadResponse = await fetch(`${baseUrl}/api/projects/${project.id}/foreground`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/octet-stream',
+          'x-file-name': foreground.name,
+        },
+        body: Uint8Array.from(foreground.bytes).buffer,
+      })
+
+      expect(uploadResponse.status).toBe(201)
+      await expect(uploadResponse.json()).resolves.toMatchObject({
+        foreground: {
+          relativePath: 'sources/foreground/speaker.mp4',
+          metadata: {
+            width: 320,
+            height: 240,
+            fps: 30,
+            hasAudio: true,
+            codec: 'h264',
+          },
+        },
+      })
+      expect(existsSync(join(projectRoot, project.id, 'sources', 'foreground', foreground.name))).toBe(true)
+      await expect(readFile(join(projectRoot, project.id, 'sources', 'source-manifest.json'), 'utf8')).resolves.toContain(
+        'sources/foreground/speaker.mp4',
+      )
+      await expect(readFile(join(projectRoot, project.id, 'sources', 'media-manifest.json'), 'utf8')).resolves.toContain(
+        '"hasAudio": true',
+      )
+
+      const rejectedResponse = await fetch(`${baseUrl}/api/projects/${project.id}/foreground`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: '/private/tmp/speaker.mp4' }),
+      })
+      expect(rejectedResponse.status).toBe(400)
+      await expect(rejectedResponse.json()).resolves.toMatchObject({
+        code: 'FILE_UPLOAD_REQUIRED',
+        stage: 'import',
+      })
+    } finally {
+      await close(server)
+    }
+  }, 30_000)
 })
