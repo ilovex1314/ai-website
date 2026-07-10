@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   animationManifestSchema,
@@ -34,6 +34,28 @@ export type HyperframesMigrationPlan = {
 export type AppliedHyperframesMigration = {
   backupPath: string
   validation: Awaited<ReturnType<typeof validateHyperframesContract>>
+}
+
+export class HyperframesMigrationError extends Error {
+  readonly code: 'HYPERFRAMES_MIGRATION_UNRESOLVED' | 'HYPERFRAMES_MIGRATION_VALIDATION_FAILED'
+  readonly summary?: HyperframesMigrationPlan['summary']
+  readonly backupPath?: string
+  readonly validation?: Awaited<ReturnType<typeof validateHyperframesContract>>
+
+  constructor(input: {
+    code: HyperframesMigrationError['code']
+    message: string
+    summary?: HyperframesMigrationPlan['summary']
+    backupPath?: string
+    validation?: Awaited<ReturnType<typeof validateHyperframesContract>>
+  }) {
+    super(input.message)
+    this.name = 'HyperframesMigrationError'
+    this.code = input.code
+    this.summary = input.summary
+    this.backupPath = input.backupPath
+    this.validation = input.validation
+  }
 }
 
 const elementSelector = 'h1,h2,h3,h4,h5,h6,p,button,a,img,video,svg,[data-hf-role]'
@@ -99,11 +121,12 @@ export async function planHyperframesMigration(root: string): Promise<Hyperframe
 
   scenes.forEach((scene, sceneIndex) => {
     const order = sceneIndex + 1
+    const existingSceneId = scene.getAttribute('data-hf-scene-id')?.trim()
     const sceneId =
-      scene.getAttribute('data-hf-scene-id')?.trim() ||
+      (existingSceneId !== undefined && existingSceneId.length > 0 ? existingSceneId : undefined) ||
       'scene-' + String(order).padStart(2, '0') + '-scene-' + stableHash(String(order) + '|scene|' + (scene.textContent ?? ''))
 
-    if (scene.hasAttribute('data-hf-scene-id')) {
+    if (existingSceneId !== undefined && existingSceneId.length > 0) {
       recognized += 1
     } else {
       needsMetadata += 1
@@ -186,8 +209,17 @@ export async function planHyperframesMigration(root: string): Promise<Hyperframe
 }
 
 export async function applyHyperframesMigration(plan: HyperframesMigrationPlan): Promise<AppliedHyperframesMigration> {
+  if (plan.summary.unresolved > 0) {
+    throw new HyperframesMigrationError({
+      code: 'HYPERFRAMES_MIGRATION_UNRESOLVED',
+      message: 'Migration plan has unresolved source structures',
+      summary: plan.summary,
+    })
+  }
+
   const backupPath = join(plan.root, '.workbench-backup', timestamp())
   const htmlChanged = plan.html !== (await readFile(plan.htmlPath, 'utf8'))
+  let manifestExisted = false
 
   await mkdir(backupPath, { recursive: true })
 
@@ -198,6 +230,7 @@ export async function applyHyperframesMigration(plan: HyperframesMigrationPlan):
   if (plan.manifestChanged) {
     try {
       await copyFile(plan.manifestPath, join(backupPath, 'animation-manifest.json'))
+      manifestExisted = true
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error
@@ -216,7 +249,24 @@ export async function applyHyperframesMigration(plan: HyperframesMigrationPlan):
   const validation = await validateHyperframesContract(plan.root)
 
   if (!validation.valid) {
-    throw new Error('Migrated HyperFrames source failed validation: ' + validation.errors.join('; '))
+    if (htmlChanged) {
+      await copyFile(join(backupPath, 'index.html'), plan.htmlPath)
+    }
+
+    if (plan.manifestChanged) {
+      if (manifestExisted) {
+        await copyFile(join(backupPath, 'animation-manifest.json'), plan.manifestPath)
+      } else {
+        await rm(plan.manifestPath, { force: true })
+      }
+    }
+
+    throw new HyperframesMigrationError({
+      code: 'HYPERFRAMES_MIGRATION_VALIDATION_FAILED',
+      message: 'Migrated HyperFrames source failed validation: ' + validation.errors.join('; '),
+      backupPath,
+      validation,
+    })
   }
 
   return { backupPath, validation }

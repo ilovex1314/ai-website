@@ -34,7 +34,7 @@ const sceneSchema = z.object({
   id: z.string().min(1),
   fromFrame: nonnegativeInteger,
   durationFrames: positiveInteger,
-})
+}).strict()
 
 const animationSchema = z.object({
   id: z.string().min(1),
@@ -47,7 +47,7 @@ const animationSchema = z.object({
     .string()
     .refine((value) => value === 'baked-internal', 'HyperFrames animations cannot use platform-overlay'),
   properties: z.array(z.string().min(1)).min(1),
-})
+}).strict()
 
 export const animationManifestSchema = z.object({
   schemaVersion: z.literal(1),
@@ -55,7 +55,7 @@ export const animationManifestSchema = z.object({
   durationInFrames: positiveInteger,
   scenes: z.array(sceneSchema).min(1),
   animations: z.array(animationSchema),
-})
+}).strict()
 
 export type AnimationManifest = z.infer<typeof animationManifestSchema>
 
