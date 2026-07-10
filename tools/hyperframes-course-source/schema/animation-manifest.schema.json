@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HyperFrames Course Animation Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "fps", "durationInFrames", "scenes", "animations"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "fps": { "type": "integer", "minimum": 1 },
+    "durationInFrames": { "type": "integer", "minimum": 1 },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "fromFrame", "durationFrames"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "fromFrame": { "type": "integer", "minimum": 0 },
+          "durationFrames": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "animations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sceneId", "targetElementId", "fromFrame", "durationFrames", "kind", "exportRole", "properties"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "sceneId": { "type": "string", "minLength": 1 },
+          "targetElementId": { "type": "string", "minLength": 1 },
+          "fromFrame": { "type": "integer", "minimum": 0 },
+          "durationFrames": { "type": "integer", "minimum": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "exportRole": { "const": "baked-internal" },
+          "properties": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

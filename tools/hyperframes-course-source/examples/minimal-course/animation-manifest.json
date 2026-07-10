@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "fps": 30,
+  "durationInFrames": 90,
+  "scenes": [
+    {
+      "id": "scene-intro",
+      "fromFrame": 0,
+      "durationFrames": 90
+    }
+  ],
+  "animations": [
+    {
+      "id": "intro-title-enter",
+      "sceneId": "scene-intro",
+      "targetElementId": "intro-title",
+      "fromFrame": 0,
+      "durationFrames": 24,
+      "kind": "slide-in",
+      "exportRole": "baked-internal",
+      "properties": ["transform", "opacity"]
+    }
+  ]
+}
