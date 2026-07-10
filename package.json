@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:web": "vite",
+    "dev:workbench": "tsx watch server/course-workbench/start.ts",
+    "dev:course": "node scripts/run-course-workbench.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
