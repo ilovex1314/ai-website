@@ -1,4 +1,5 @@
-import { lstat, realpath } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { lstat, open, realpath } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve } from 'node:path'
 import { WorkbenchServiceError, type WorkbenchErrorStage } from './projectRepository.js'
 
@@ -104,5 +105,34 @@ export async function resolveContainedPath(
     }
 
     return resolve(canonical, relative(existing, requested))
+  }
+}
+
+export function resolveProjectArtifactPath(
+  projectDirectory: string,
+  artifactPath: string,
+  allowMissing = true,
+): Promise<string> {
+  return resolveContainedPath(projectDirectory, artifactPath, {
+    allowMissing,
+    rejectSymlinks: true,
+    code: 'PROJECT_ARTIFACT_PATH_NOT_ALLOWED',
+    stage: 'save',
+    message: 'Project artifact destination must stay inside the project without symlinks',
+    recovery: 'Remove symlinks from project artifact directories and files, then retry the import.',
+  })
+}
+
+export async function writeFileNoFollow(path: string, data: string | Uint8Array): Promise<void> {
+  const handle = await open(
+    path,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+    0o600,
+  )
+
+  try {
+    await handle.writeFile(data)
+  } finally {
+    await handle.close()
   }
 }

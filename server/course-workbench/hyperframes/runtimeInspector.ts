@@ -6,6 +6,7 @@ import { createServer, type Server } from 'node:http'
 import { extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { chromium } from 'playwright'
 import type { CanvasAspectRatio } from '../../../src/features/remotion-course-workbench/workbenchTypes.js'
+import { resolveProjectArtifactPath, writeFileNoFollow } from '../pathSafety.js'
 import { WorkbenchServiceError } from '../projectRepository.js'
 import type { AnimationManifest } from './contract.js'
 
@@ -118,11 +119,35 @@ function thumbnailRef(aspect: CanvasAspectRatio, sceneId: string): string {
   return `hyperframes/thumbnails/${aspect.replace(':', 'x')}/${safeSceneId}.png`
 }
 
+function cssString(value: string): string {
+  return Array.from(value, (character) => {
+    const codePoint = character.codePointAt(0) ?? 0
+
+    if (codePoint === 0) {
+      return '\\fffd '
+    }
+
+    if ((codePoint >= 1 && codePoint <= 31) || codePoint === 127) {
+      return `\\${codePoint.toString(16)} `
+    }
+
+    if (character === '"' || character === '\\') {
+      return `\\${character}`
+    }
+
+    return character
+  }).join('')
+}
+
+function elementSelector(elementId: string): string {
+  return `[data-hf-element-id="${cssString(elementId)}"]`
+}
+
 export async function inspectHyperframesRuntime(
   root: string,
   manifest: AnimationManifest,
   aspects: CanvasAspectRatio[],
-  thumbnailDirectory: string,
+  projectDirectory: string,
 ): Promise<RuntimeInspection> {
   const { server, url } = await serveProject(root)
   const browser = await chromium.launch({ headless: true })
@@ -133,8 +158,17 @@ export async function inspectHyperframesRuntime(
   try {
     for (const aspect of aspects) {
       const page = await browser.newPage({ viewport: viewports[aspect] })
-      const aspectThumbnailDirectory = join(thumbnailDirectory, aspect.replace(':', 'x'))
-      await mkdir(aspectThumbnailDirectory, { recursive: true })
+      const aspectThumbnailReference = `hyperframes/thumbnails/${aspect.replace(':', 'x')}`
+      const requestedAspectThumbnailDirectory = await resolveProjectArtifactPath(
+        projectDirectory,
+        aspectThumbnailReference,
+      )
+      await mkdir(requestedAspectThumbnailDirectory, { recursive: true })
+      const aspectThumbnailDirectory = await resolveProjectArtifactPath(
+        projectDirectory,
+        aspectThumbnailReference,
+        false,
+      )
       await page.goto(url, { waitUntil: 'load' })
       await page.waitForFunction(() => document.readyState === 'complete')
 
@@ -165,10 +199,6 @@ export async function inspectHyperframesRuntime(
             if (sceneElement === null) {
               return []
             }
-
-            document.querySelectorAll<HTMLElement>('[data-hf-scene-id]').forEach((candidate) => {
-              candidate.style.visibility = candidate === sceneElement ? 'visible' : 'hidden'
-            })
 
             const elements = new Map<string, SampledElement>()
 
@@ -233,7 +263,10 @@ export async function inspectHyperframesRuntime(
         )
 
         const reference = thumbnailRef(aspect, scene.id)
-        const thumbnailPath = join(aspectThumbnailDirectory, reference.split('/').at(-1) ?? 'scene.png')
+        const thumbnailPath = await resolveProjectArtifactPath(
+          aspectThumbnailDirectory,
+          reference.split('/').at(-1) ?? 'scene.png',
+        )
         const thumbnailFrame = scene.fromFrame + Math.min(scene.durationFrames - 1, Math.floor(scene.durationFrames / 2))
         await page.evaluate(
           ({ seconds }) => {
@@ -243,7 +276,37 @@ export async function inspectHyperframesRuntime(
           },
           { seconds: thumbnailFrame / manifest.fps },
         )
-        await page.screenshot({ path: thumbnailPath })
+        await page.evaluate((sceneId) => {
+          type InspectorWindow = typeof window & {
+            __hfInspectorSceneVisibility?: Array<{ element: HTMLElement; visibility: string }>
+          }
+          const inspectorWindow = window as InspectorWindow
+          const target = document.querySelector<HTMLElement>(`[data-hf-scene-id="${CSS.escape(sceneId)}"]`)
+          inspectorWindow.__hfInspectorSceneVisibility = Array.from(
+            document.querySelectorAll<HTMLElement>('[data-hf-scene-id]'),
+          ).map((element) => ({ element, visibility: element.style.visibility }))
+          inspectorWindow.__hfInspectorSceneVisibility.forEach(({ element }) => {
+            if (element !== target) {
+              element.style.visibility = 'hidden'
+            }
+          })
+        }, scene.id)
+
+        try {
+          const thumbnail = await page.screenshot()
+          await writeFileNoFollow(thumbnailPath, thumbnail)
+        } finally {
+          await page.evaluate(() => {
+            type InspectorWindow = typeof window & {
+              __hfInspectorSceneVisibility?: Array<{ element: HTMLElement; visibility: string }>
+            }
+            const inspectorWindow = window as InspectorWindow
+            inspectorWindow.__hfInspectorSceneVisibility?.forEach(({ element, visibility }) => {
+              element.style.visibility = visibility
+            })
+            delete inspectorWindow.__hfInspectorSceneVisibility
+          })
+        }
 
         const existingScene = sceneMap[scene.id]
         sceneMap[scene.id] = {
@@ -280,7 +343,7 @@ export async function inspectHyperframesRuntime(
             id: element.id,
             sceneId: scene.id,
             role: element.role,
-            selector: `[data-hf-element-id="${element.id}"]`,
+            selector: elementSelector(element.id),
             text: element.text,
             depth: element.depth,
             thumbnailsByAspect: {

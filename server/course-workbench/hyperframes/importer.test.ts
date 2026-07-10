@@ -3,10 +3,11 @@ import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import { probeMedia } from '../mediaProbe.js'
+import { parseHyperframesHtml } from './contract.js'
 import { importHyperframesProject } from './importer.js'
 
 const execFileAsync = promisify(execFile)
@@ -289,6 +290,93 @@ describe('per-aspect thumbnails', () => {
   }, 30_000)
 })
 
+describe('project artifact destination containment', () => {
+  const artifactPaths = [
+    { path: 'hyperframes', directory: true },
+    { path: 'hyperframes/thumbnails', directory: true },
+    { path: 'hyperframes/thumbnails/16x9', directory: true },
+    { path: 'sources', directory: true },
+    { path: 'hyperframes/scene-map.json', directory: false },
+    { path: 'hyperframes/element-map.json', directory: false },
+    { path: 'hyperframes/baked-animation-map.json', directory: false },
+    { path: 'hyperframes/migration-report.json', directory: false },
+    { path: 'sources/source-manifest.json', directory: false },
+    { path: 'sources/media-manifest.json', directory: false },
+  ]
+
+  it.each(artifactPaths)(
+    'rejects symlinked artifact destination $path before writing',
+    async ({ path, directory }) => {
+      const sourceRoot = await temporaryDirectory('course-workbench-artifact-source-')
+      const fixture = await createDeclaredFixture(sourceRoot, 'artifact-course')
+      const projectRoot = await temporaryDirectory('course-workbench-projects-')
+      const projectDirectory = join(projectRoot, 'artifact-course')
+      const artifactPath = join(projectDirectory, path)
+      const outside = await temporaryDirectory('course-workbench-artifact-escape-')
+      await mkdir(dirname(artifactPath), { recursive: true })
+
+      if (directory) {
+        await symlink(outside, artifactPath)
+      } else {
+        const outsideFile = join(outside, 'sentinel.json')
+        await writeFile(outsideFile, 'unchanged')
+        await symlink(outsideFile, artifactPath)
+      }
+
+      await expect(importHyperframesProject({
+        sourcePath: fixture,
+        projectRoot,
+        allowedSourceRoots: [sourceRoot],
+        aspects: ['16:9'],
+      })).rejects.toMatchObject({
+        code: 'PROJECT_ARTIFACT_PATH_NOT_ALLOWED',
+        stage: 'save',
+        subject: expect.stringContaining(path),
+      })
+
+      if (directory) {
+        await expect(readdir(outside)).resolves.toEqual([])
+      } else {
+        await expect(readFile(join(outside, 'sentinel.json'), 'utf8')).resolves.toBe('unchanged')
+      }
+    },
+    30_000,
+  )
+})
+
+describe('persisted element selectors', () => {
+  it('escapes CSS-special data-hf-element-id values into a resolvable attribute selector', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-selector-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'selector-course')
+    const elementId = 'title"slash\\colon:bracket[] space #dot.'
+    const htmlElementId = elementId.replaceAll('&', '&amp;').replaceAll('"', '&quot;')
+    await writeFile(
+      join(fixture, 'index.html'),
+      `<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><section data-hf-scene-id="intro"><h1 data-hf-element-id="${htmlElementId}">Special</h1></section></div></body></html>`,
+    )
+
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })
+
+    expect(imported.status).toBe('ready')
+
+    if (imported.status !== 'ready') {
+      throw new Error('Expected a ready import result')
+    }
+
+    const selector = imported.elementMap[elementId].selector
+    const document = parseHyperframesHtml(await readFile(join(fixture, 'index.html'), 'utf8'))
+    const selectedIds = Array.from(document.querySelectorAll(selector)).map(
+      (element) => element.getAttribute('data-hf-element-id'),
+    )
+    expect(selectedIds).toEqual([elementId])
+  }, 30_000)
+})
+
 describe('imported child path containment', () => {
   it.each(['index.html', 'animation-manifest.json', 'meta.json'])(
     'rejects a %s symlink that escapes the imported project',
@@ -432,6 +520,30 @@ describe('runtime visibility sampling', () => {
     expect(imported.elementMap.window.visibility).toEqual({ fromFrame: 15, toFrame: 24 })
     expect(imported.elementMap['display-none'].visibility).toEqual({ fromFrame: 0, toFrame: 0 })
     expect(imported.elementMap['zero-geometry'].visibility).toEqual({ fromFrame: 0, toFrame: 0 })
+  }, 30_000)
+
+  it('preserves a target scene that is legitimately hidden by the source', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-hidden-scene-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'hidden-scene-course')
+    await writeFile(
+      join(fixture, 'index.html'),
+      '<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><section data-hf-scene-id="intro" style="visibility: hidden"><h1 data-hf-element-id="title" style="width: 200px; height: 80px">Hidden scene</h1></section></div></body></html>',
+    )
+
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot: await temporaryDirectory('course-workbench-projects-'),
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })
+
+    expect(imported.status).toBe('ready')
+
+    if (imported.status !== 'ready') {
+      throw new Error('Expected a ready import result')
+    }
+
+    expect(imported.elementMap.title.visibility).toEqual({ fromFrame: 0, toFrame: 0 })
   }, 30_000)
 })
 

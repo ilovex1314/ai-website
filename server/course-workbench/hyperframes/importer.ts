@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { basename, join, relative } from 'node:path'
 import type { CanvasAspectRatio } from '../../../src/features/remotion-course-workbench/workbenchTypes.js'
 import type { CourseProjectV2 } from '../../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
 import { probeMedia, type MediaMetadata } from '../mediaProbe.js'
-import { resolveContainedPath } from '../pathSafety.js'
+import { resolveContainedPath, resolveProjectArtifactPath, writeFileNoFollow } from '../pathSafety.js'
 import { createProjectRepository, WorkbenchServiceError } from '../projectRepository.js'
 import { validateHyperframesContract, type AnimationManifest } from './contract.js'
 import { applyHyperframesMigration, planHyperframesMigration } from './migrator.js'
@@ -203,27 +203,54 @@ async function persistImportArtifacts(
   projectDirectory: string,
   result: ReadyHyperframesImport,
 ): Promise<void> {
-  const hyperframesDirectory = join(projectDirectory, 'hyperframes')
-  const sourcesDirectory = join(projectDirectory, 'sources')
+  const hyperframesDirectory = await resolveProjectArtifactPath(projectDirectory, 'hyperframes')
+  const sourcesDirectory = await resolveProjectArtifactPath(projectDirectory, 'sources')
   await Promise.all([
     mkdir(hyperframesDirectory, { recursive: true }),
     mkdir(sourcesDirectory, { recursive: true }),
   ])
+  const artifactPaths = await Promise.all([
+    resolveProjectArtifactPath(projectDirectory, 'hyperframes/scene-map.json'),
+    resolveProjectArtifactPath(projectDirectory, 'hyperframes/element-map.json'),
+    resolveProjectArtifactPath(projectDirectory, 'hyperframes/baked-animation-map.json'),
+    resolveProjectArtifactPath(projectDirectory, 'hyperframes/migration-report.json'),
+    resolveProjectArtifactPath(projectDirectory, 'sources/source-manifest.json'),
+    resolveProjectArtifactPath(projectDirectory, 'sources/media-manifest.json'),
+  ])
   await Promise.all([
-    writeFile(join(hyperframesDirectory, 'scene-map.json'), json(result.sceneMap)),
-    writeFile(join(hyperframesDirectory, 'element-map.json'), json(result.elementMap)),
-    writeFile(join(hyperframesDirectory, 'baked-animation-map.json'), json(result.bakedAnimationMap)),
-    writeFile(join(hyperframesDirectory, 'migration-report.json'), json(result.migrationReport)),
-    writeFile(
-      join(sourcesDirectory, 'source-manifest.json'),
+    writeFileNoFollow(artifactPaths[0], json(result.sceneMap)),
+    writeFileNoFollow(artifactPaths[1], json(result.elementMap)),
+    writeFileNoFollow(artifactPaths[2], json(result.bakedAnimationMap)),
+    writeFileNoFollow(artifactPaths[3], json(result.migrationReport)),
+    writeFileNoFollow(
+      artifactPaths[4],
       json({
         background: result.project.source.background,
         sourceDimensions: result.sourceDimensions,
         fingerprints: result.fingerprints,
       }),
     ),
-    writeFile(join(sourcesDirectory, 'media-manifest.json'), json({ background: result.backgroundMedia ?? null })),
+    writeFileNoFollow(artifactPaths[5], json({ background: result.backgroundMedia ?? null })),
   ])
+}
+
+async function validateArtifactDestinations(
+  projectDirectory: string,
+  aspects: CanvasAspectRatio[],
+): Promise<void> {
+  const paths = [
+    'hyperframes',
+    'hyperframes/thumbnails',
+    'sources',
+    'hyperframes/scene-map.json',
+    'hyperframes/element-map.json',
+    'hyperframes/baked-animation-map.json',
+    'hyperframes/migration-report.json',
+    'sources/source-manifest.json',
+    'sources/media-manifest.json',
+    ...aspects.map((aspect) => `hyperframes/thumbnails/${aspect.replace(':', 'x')}`),
+  ]
+  await Promise.all(paths.map((path) => resolveProjectArtifactPath(projectDirectory, path)))
 }
 
 export async function importHyperframesProject(
@@ -273,7 +300,7 @@ export async function importHyperframesProject(
     : ['16:9', '4:3', '9:16']
   const metadata = await readMetadata(root)
   const id = projectId(root, metadata.id)
-  const projectDirectory = await resolveContainedPath(request.projectRoot, id, {
+  const requestedProjectDirectory = await resolveContainedPath(request.projectRoot, id, {
     allowMissing: true,
     rejectSymlinks: true,
     code: 'PROJECT_OUTPUT_NOT_ALLOWED',
@@ -281,11 +308,20 @@ export async function importHyperframesProject(
     message: 'Course project output path must stay inside the project root without symlinks',
     recovery: 'Remove the conflicting project symlink or choose a different project id.',
   })
+  await mkdir(requestedProjectDirectory, { recursive: true })
+  const projectDirectory = await resolveContainedPath(request.projectRoot, id, {
+    rejectSymlinks: true,
+    code: 'PROJECT_OUTPUT_NOT_ALLOWED',
+    stage: 'save',
+    message: 'Course project output path must stay inside the project root without symlinks',
+    recovery: 'Remove the conflicting project symlink or choose a different project id.',
+  })
+  await validateArtifactDestinations(projectDirectory, aspects)
   const runtime = await inspectHyperframesRuntime(
     root,
     contract.manifest,
     aspects,
-    join(projectDirectory, 'hyperframes', 'thumbnails'),
+    projectDirectory,
   )
   const mediaPath = await findBackgroundMedia(root, id)
   const backgroundMedia = mediaPath === undefined
