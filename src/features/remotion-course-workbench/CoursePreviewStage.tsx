@@ -14,6 +14,7 @@ import { calculateContainTransform, editorCanvasStyle } from './remotion/Preview
 import type {
   AnimationAction,
   AnimationActionRef,
+  CanvasAspectRatio,
   CourseStage,
   CourseWorkbenchAction,
   PlaybackState,
@@ -56,6 +57,7 @@ type DragState =
       startY: number
       originX: number
       originY: number
+      bound: boolean
     }
   | {
       kind: 'action-resize'
@@ -64,6 +66,7 @@ type DragState =
       originWidth: number
       originHeight: number
       originRadius: number
+      bound: boolean
     }
 
 type ActiveActionEntry = {
@@ -152,12 +155,24 @@ function buildCompositionProject(
     actions: previewActions,
   })
   const elementMap = Object.fromEntries(
-    stage.elements.map((element) => [
-      element.id,
-      {
-        rectsByAspect: element.boxesByAspect ?? { [stage.canvasAspectRatio]: element.box },
-      },
-    ]),
+    stage.elements.map((element) => {
+      const percentRects = element.boxesByAspect ?? { [stage.canvasAspectRatio]: element.box }
+      const rectsByAspect = Object.fromEntries(
+        Object.entries(percentRects).map(([aspect, box]) => {
+          const dimensions = compositionDimensions[aspect as CanvasAspectRatio]
+          return [
+            aspect,
+            {
+              x: (box.x / 100) * dimensions.width,
+              y: (box.y / 100) * dimensions.height,
+              width: (box.width / 100) * dimensions.width,
+              height: (box.height / 100) * dimensions.height,
+            },
+          ]
+        }),
+      )
+      return [element.id, { rectsByAspect }]
+    }),
   )
   const foregroundMediaUrl = previewStage.foregroundSource.localPreviewUrl
 
@@ -355,22 +370,46 @@ export function CoursePreviewStage({
     }
 
     if (dragState.kind === 'action-move') {
-      dispatch({
-        type: 'move-selected-action',
-        x: clampPercent(dragState.originX + (event.clientX - dragState.startX) / 6.25),
-        y: clampPercent(dragState.originY + (event.clientY - dragState.startY) / 5),
-      })
+      if (dragState.bound) {
+        dispatch({
+          type: 'update-selected-action-ref',
+          patch: {
+            params: {
+              offsetX: Math.round(dragState.originX + (event.clientX - dragState.startX) / previewTransform.scale),
+              offsetY: Math.round(dragState.originY + (event.clientY - dragState.startY) / previewTransform.scale),
+            },
+          },
+        })
+      } else {
+        dispatch({
+          type: 'move-selected-action',
+          x: clampPercent(dragState.originX + (event.clientX - dragState.startX) / 6.25),
+          y: clampPercent(dragState.originY + (event.clientY - dragState.startY) / 5),
+        })
+      }
     }
 
     if (dragState.kind === 'action-resize') {
-      const width = clampPercent(dragState.originWidth + (event.clientX - dragState.startX) / 10, 6, 96)
-      const height = clampPercent(dragState.originHeight + (event.clientY - dragState.startY) / 10, 4, 80)
-      dispatch({
-        type: 'resize-selected-action',
-        width,
-        height,
-        radius: action.category === 'circle' ? Math.max(width, height) / 2 : dragState.originRadius,
-      })
+      if (dragState.bound) {
+        dispatch({
+          type: 'update-selected-action-ref',
+          patch: {
+            params: {
+              widthDelta: Math.round(dragState.originWidth + (event.clientX - dragState.startX) / previewTransform.scale),
+              heightDelta: Math.round(dragState.originHeight + (event.clientY - dragState.startY) / previewTransform.scale),
+            },
+          },
+        })
+      } else {
+        const width = clampPercent(dragState.originWidth + (event.clientX - dragState.startX) / 10, 6, 96)
+        const height = clampPercent(dragState.originHeight + (event.clientY - dragState.startY) / 10, 4, 80)
+        dispatch({
+          type: 'resize-selected-action',
+          width,
+          height,
+          radius: action.category === 'circle' ? Math.max(width, height) / 2 : dragState.originRadius,
+        })
+      }
     }
   }
   const stopDrag = () => setDragState(undefined)
@@ -408,13 +447,15 @@ export function CoursePreviewStage({
           onPointerDown={(event) => {
             event.preventDefault()
             event.stopPropagation()
+            if (entry.ref.id) dispatch({ type: 'select-action-ref', id: entry.ref.id })
             event.currentTarget.setPointerCapture?.(event.pointerId)
             setDragState({
               kind: 'action-move',
               startX: event.clientX,
               startY: event.clientY,
-              originX: entry.action.params.x ?? 16,
-              originY: entry.action.params.y ?? 28,
+              originX: entry.ref.params?.offsetX ?? (entry.ref.elementId ? 0 : entry.action.params.x ?? 16),
+              originY: entry.ref.params?.offsetY ?? (entry.ref.elementId ? 0 : entry.action.params.y ?? 28),
+              bound: Boolean(entry.ref.elementId),
             })
           }}
           onPointerMove={handlePointerMove}
@@ -434,14 +475,16 @@ export function CoursePreviewStage({
           onPointerDown={(event) => {
             event.preventDefault()
             event.stopPropagation()
+            if (entry.ref.id) dispatch({ type: 'select-action-ref', id: entry.ref.id })
             event.currentTarget.setPointerCapture?.(event.pointerId)
             setDragState({
               kind: 'action-resize',
               startX: event.clientX,
               startY: event.clientY,
-              originWidth: entry.action.params.width ?? (entry.action.category === 'circle' ? 18 : 42),
-              originHeight: entry.action.params.height ?? (entry.action.category === 'lower-third' ? 14 : 18),
+              originWidth: entry.ref.params?.widthDelta ?? (entry.ref.elementId ? 0 : entry.action.params.width ?? (entry.action.category === 'circle' ? 18 : 42)),
+              originHeight: entry.ref.params?.heightDelta ?? (entry.ref.elementId ? 0 : entry.action.params.height ?? (entry.action.category === 'lower-third' ? 14 : 18)),
               originRadius: entry.action.params.radius ?? 0,
+              bound: Boolean(entry.ref.elementId),
             })
           }}
           onPointerMove={handlePointerMove}

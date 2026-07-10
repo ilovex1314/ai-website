@@ -121,10 +121,10 @@ function layoutStyle(
   return {
     anchorKind: 'element',
     style: {
-      left: `${target.x + layout.inset.left}px`,
-      top: `${target.y + layout.inset.top}px`,
-      width: `${target.width - layout.inset.left - layout.inset.right}px`,
-      height: `${target.height - layout.inset.top - layout.inset.bottom}px`,
+      left: `${target.x + layout.inset.left + numeric(params, 'offsetX', 0)}px`,
+      top: `${target.y + layout.inset.top + numeric(params, 'offsetY', 0)}px`,
+      width: `${Math.max(1, target.width - layout.inset.left - layout.inset.right + numeric(params, 'widthDelta', 0))}px`,
+      height: `${Math.max(1, target.height - layout.inset.top - layout.inset.bottom + numeric(params, 'heightDelta', 0))}px`,
     },
   }
 }

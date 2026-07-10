@@ -152,11 +152,15 @@ describe('RemotionCourseWorkbench', () => {
       height: '16%',
     })
     expect(actionOverlay).toHaveStyle({
-      left: '14%',
-      top: '21%',
-      width: '58%',
-      height: '18%',
+      left: '129.6px',
+      top: '422.4px',
+      width: '799.2px',
+      height: '307.2px',
     })
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveAttribute(
+      'data-layout-anchor',
+      'element',
+    )
   })
 
   it('renders the Codex Keyframes Tutorial video as the review background without blocking element selection', async () => {
@@ -518,8 +522,10 @@ describe('RemotionCourseWorkbench', () => {
     fireEvent.pointerMove(moveHandle, { clientX: 310, clientY: 430 })
     fireEvent.pointerUp(moveHandle)
 
-    expect(screen.getByLabelText('X')).toHaveValue(22)
-    expect(screen.getByLabelText('Y')).toHaveValue(31)
+    expect(overlay).toHaveStyle({
+      left: '179.6px',
+      top: '472.4px',
+    })
 
     const resizeHandle = within(overlay).getByTestId('action-resize-handle')
     expect(window.getComputedStyle(resizeHandle).pointerEvents).toBe('auto')
@@ -529,11 +535,9 @@ describe('RemotionCourseWorkbench', () => {
     fireEvent.pointerMove(resizeHandle, { clientX: 580, clientY: 540 })
     fireEvent.pointerUp(resizeHandle)
 
-    expect(screen.getByLabelText('宽度')).toHaveValue(64)
-    expect(screen.getByLabelText('高度')).toHaveValue(22)
     expect(overlay).toHaveStyle({
-      width: '64%',
-      height: '22%',
+      width: '859.2px',
+      height: '347.2px',
     })
   })
 

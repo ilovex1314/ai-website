@@ -36,6 +36,10 @@ export type ActionParams = {
   fromY?: number
   toX?: number
   toY?: number
+  offsetX?: number
+  offsetY?: number
+  widthDelta?: number
+  heightDelta?: number
   progress?: number
   step?: number
   totalSteps?: number
@@ -345,7 +349,7 @@ export type CourseWorkbenchAction =
     }
   | {
       type: 'update-selected-action-ref'
-      patch: Partial<Pick<AnimationActionRef, 'actionId' | 'from' | 'duration' | 'fadeInFrames' | 'fadeOutFrames'>>
+      patch: Partial<Pick<AnimationActionRef, 'actionId' | 'from' | 'duration' | 'fadeInFrames' | 'fadeOutFrames' | 'params'>>
     }
   | { type: 'remove-selected-action-ref' }
   | { type: 'set-foreground-window'; patch: Partial<ForegroundWindow> }

@@ -134,6 +134,17 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
         return
       }
 
+      const elementId =
+        typeof legacyRef.elementId === 'string' && legacyRef.elementId.length > 0
+          ? legacyRef.elementId
+          : undefined
+      const elementLayout = elementId
+        ? {
+            anchor: { kind: 'element' as const, elementId },
+            inset: { top: 0, right: 0, bottom: 0, left: 0 },
+          }
+        : undefined
+
       actionInstances.push({
         id,
         templateId: asString(legacyRef.actionId, `${id}.actionId`),
@@ -143,7 +154,9 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
         fadeOutFrames: typeof legacyRef.fadeOutFrames === 'number' ? legacyRef.fadeOutFrames : 0,
         exportRole: 'platform-overlay',
         params: cloneParams(legacyRef.params),
-        layoutByAspect: {},
+        layoutByAspect: elementLayout
+          ? { '16:9': elementLayout, '4:3': elementLayout, '9:16': elementLayout }
+          : {},
       })
     })
   })

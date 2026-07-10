@@ -536,7 +536,13 @@ export function courseWorkbenchReducer(
         timeline: state.timeline.map((segment) => ({
           ...segment,
           actionRefs: segment.actionRefs.map((ref) =>
-            ref.id === state.selectedActionRefId ? { ...ref, ...action.patch } : ref,
+            ref.id === state.selectedActionRefId
+              ? {
+                  ...ref,
+                  ...action.patch,
+                  params: action.patch.params ? { ...ref.params, ...action.patch.params } : ref.params,
+                }
+              : ref,
           ),
         })),
       }
