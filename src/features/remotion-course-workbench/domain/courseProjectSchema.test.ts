@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { migrateLegacyWorkbenchState } from './courseProjectMigration.js'
-import { parseCourseProject } from './courseProjectSchema.js'
+import { actionInstanceSchema, parseCourseProject } from './courseProjectSchema.js'
 
 const validFixture = {
   version: 2,
@@ -151,6 +151,42 @@ describe('CourseProjectV2 schema', () => {
     ).toThrow(/layoutByAspect/)
   })
 
+  it('rejects instance-only timing and position fields stored on templates', () => {
+    expect(() =>
+      parseCourseProject({
+        ...validFixture,
+        actionTemplates: [
+          {
+            ...validFixture.actionTemplates[0],
+            fromFrame: 12,
+            durationFrames: 80,
+            dragX: 24,
+            dragY: 48,
+            x: 24,
+            y: 48,
+            position: { x: 24, y: 48 },
+            layoutOverride: validFixture.actionInstances[0].layoutByAspect['9:16'],
+          },
+        ],
+      }),
+    ).toThrow(/fromFrame|durationFrames|dragX|dragY|x|y|position|layoutOverride/)
+  })
+
+  it('rejects top-level drag coordinates stored on templates', () => {
+    expect(() =>
+      parseCourseProject({
+        ...validFixture,
+        actionTemplates: [
+          {
+            ...validFixture.actionTemplates[0],
+            x: 24,
+            y: 48,
+          },
+        ],
+      }),
+    ).toThrow(/x|y/)
+  })
+
   it('rejects baked animations as exportable overlays', () => {
     expect(() => parseCourseProject(invalidBakedFixture)).toThrow(/baked-internal/)
   })
@@ -167,6 +203,69 @@ describe('CourseProjectV2 schema', () => {
         ],
       }),
     ).toThrow(/editor-only/)
+  })
+
+  it('rejects non-overlay roles from actionInstanceSchema directly', () => {
+    expect(() =>
+      actionInstanceSchema.parse({
+        ...validFixture.actionInstances[0],
+        exportRole: 'baked-internal',
+      }),
+    ).toThrow(/platform-overlay/)
+  })
+
+  it('keeps all three aspect layouts independent on one instance', () => {
+    const project = parseCourseProject({
+      ...validFixture,
+      actionInstances: [
+        {
+          ...validFixture.actionInstances[0],
+          layoutByAspect: {
+            '16:9': {
+              anchor: { kind: 'canvas' },
+              inset: { top: 8, right: 12, bottom: 8, left: 12 },
+            },
+            '4:3': {
+              anchor: { kind: 'element', elementId: 'concept-title' },
+              inset: { top: -4, right: -8, bottom: -4, left: -8 },
+            },
+            '9:16': validFixture.actionInstances[0].layoutByAspect['9:16'],
+          },
+        },
+      ],
+    })
+
+    const layouts = project.actionInstances[0].layoutByAspect
+    expect(layouts['16:9']).toEqual({
+      anchor: { kind: 'canvas' },
+      inset: { top: 8, right: 12, bottom: 8, left: 12 },
+    })
+    expect(layouts['4:3']).toEqual({
+      anchor: { kind: 'element', elementId: 'concept-title' },
+      inset: { top: -4, right: -8, bottom: -4, left: -8 },
+    })
+    expect(layouts['9:16']).toEqual(validFixture.actionInstances[0].layoutByAspect['9:16'])
+
+    const widescreenLayout = layouts['16:9']
+    expect(widescreenLayout).toBeDefined()
+    widescreenLayout!.inset.left = 99
+    expect(layouts['4:3']?.inset.left).toBe(-8)
+    expect(layouts['9:16']?.inset.left).toBe(-16)
+  })
+
+  it('rejects duplicate template and action-instance IDs', () => {
+    expect(() =>
+      parseCourseProject({
+        ...validFixture,
+        actionTemplates: [...validFixture.actionTemplates, { ...validFixture.actionTemplates[0] }],
+      }),
+    ).toThrow(/duplicate action template id/i)
+    expect(() =>
+      parseCourseProject({
+        ...validFixture,
+        actionInstances: [...validFixture.actionInstances, { ...validFixture.actionInstances[0] }],
+      }),
+    ).toThrow(/duplicate action instance id/i)
   })
 
   it('migrates legacy actions into independent timeline instances', () => {
@@ -204,5 +303,46 @@ describe('CourseProjectV2 schema', () => {
     expect(project.actionInstances[1].fromFrame).toBe(220)
     expect(project.actionInstances[1].params.color).toBe('#16a34a')
     expect(project.actionTemplates[0].defaultParams.color).toBe('#ef4444')
+  })
+
+  it('deeply clones nested legacy params for every migrated instance', () => {
+    const sharedParams = { palette: [{ color: '#2563eb' }], label: { text: 'Focus' } }
+    const project = migrateLegacyWorkbenchState({
+      ...legacyWorkbenchState,
+      timeline: [
+        {
+          ...legacyWorkbenchState.timeline[0],
+          actionRefs: legacyWorkbenchState.timeline[0].actionRefs.map((ref) => ({
+            ...ref,
+            params: sharedParams,
+          })),
+        },
+      ],
+    })
+    const firstParams = project.actionInstances[0].params as typeof sharedParams
+    const secondParams = project.actionInstances[1].params as typeof sharedParams
+
+    firstParams.palette[0].color = '#f59e0b'
+    firstParams.label.text = 'Changed'
+
+    expect(secondParams.palette[0].color).toBe('#2563eb')
+    expect(secondParams.label.text).toBe('Focus')
+  })
+
+  it('rejects duplicate legacy action reference IDs', () => {
+    expect(() =>
+      migrateLegacyWorkbenchState({
+        ...legacyWorkbenchState,
+        timeline: [
+          {
+            ...legacyWorkbenchState.timeline[0],
+            actionRefs: legacyWorkbenchState.timeline[0].actionRefs.map((ref) => ({
+              ...ref,
+              id: 'duplicate-reference',
+            })),
+          },
+        ],
+      }),
+    ).toThrow(/duplicate action instance id/i)
   })
 })

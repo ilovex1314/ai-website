@@ -32,6 +32,32 @@ export const layoutVariantSchema = z.object({
   '9:16': layoutOverrideSchema.optional(),
 })
 
+const templateInstanceOnlyFields = new Set([
+  'fromFrame',
+  'durationFrames',
+  'dragX',
+  'dragY',
+  'x',
+  'y',
+  'left',
+  'top',
+  'right',
+  'bottom',
+  'width',
+  'height',
+  'position',
+  'layoutByAspect',
+  'layoutOverride',
+  'layoutOverrides',
+  'anchor',
+  'inset',
+  'offset',
+])
+
+function isTemplateInstanceOnlyField(key: string): boolean {
+  return templateInstanceOnlyFields.has(key) || /^(drag|position|layout|anchor|inset|offset)/.test(key)
+}
+
 export const actionTemplateSchema = z.object({
   id: z.string().min(1),
   version: z.string().min(1),
@@ -42,13 +68,15 @@ export const actionTemplateSchema = z.object({
 })
   .passthrough()
   .superRefine((template, context) => {
-    if (Object.hasOwn(template, 'layoutByAspect')) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['layoutByAspect'],
-        message: 'layoutByAspect belongs to action instances, not templates',
-      })
-    }
+    Object.keys(template).forEach((key) => {
+      if (isTemplateInstanceOnlyField(key)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} belongs to action instances, not templates`,
+        })
+      }
+    })
   })
 
 export const actionInstanceSchema = z.object({
@@ -56,7 +84,9 @@ export const actionInstanceSchema = z.object({
   templateId: z.string().min(1),
   fromFrame: z.number().int().nonnegative(),
   durationFrames: z.number().int().positive(),
-  exportRole: exportRoleSchema,
+  exportRole: z.literal('platform-overlay', {
+    error: (issue) => `${String(issue.input)} action instances must use platform-overlay`,
+  }),
   params: z.record(z.string(), z.unknown()).default({}),
   layoutByAspect: layoutVariantSchema,
 })
@@ -90,23 +120,30 @@ const courseProjectSchema = z
     actionInstances: z.array(actionInstanceSchema),
   })
   .superRefine((project, context) => {
-    project.actionInstances.forEach((instance, index) => {
-      if (instance.exportRole !== 'platform-overlay') {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['actionInstances', index, 'exportRole'],
-          message: `${instance.exportRole} animations cannot live in actionInstances; baked-internal animations must live in source.bakedAnimations`,
-        })
-      }
-    })
+    const reportDuplicateIds = (items: Array<{ id: string }>, path: 'actionTemplates' | 'actionInstances', label: string) => {
+      const seen = new Set<string>()
+
+      items.forEach((item, index) => {
+        if (seen.has(item.id)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [path, index, 'id'],
+            message: `duplicate ${label} id: ${item.id}`,
+          })
+        } else {
+          seen.add(item.id)
+        }
+      })
+    }
+
+    reportDuplicateIds(project.actionTemplates, 'actionTemplates', 'action template')
+    reportDuplicateIds(project.actionInstances, 'actionInstances', 'action instance')
   })
 
 export type ActionTemplate = z.infer<typeof actionTemplateSchema>
 export type LayoutOverride = z.infer<typeof layoutOverrideSchema>
 export type LayoutVariant = z.infer<typeof layoutVariantSchema>
-export type ActionInstance = Omit<z.infer<typeof actionInstanceSchema>, 'exportRole'> & {
-  exportRole: 'platform-overlay'
-}
+export type ActionInstance = z.infer<typeof actionInstanceSchema>
 export type CourseProjectV2 = Omit<z.infer<typeof courseProjectSchema>, 'actionInstances'> & {
   actionInstances: ActionInstance[]
 }

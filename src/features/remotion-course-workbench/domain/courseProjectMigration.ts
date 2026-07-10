@@ -55,7 +55,7 @@ function cloneParams(value: unknown): Record<string, unknown> {
     return {}
   }
 
-  return { ...(value as Record<string, unknown>) }
+  return structuredClone(value as Record<string, unknown>)
 }
 
 function isBakedLegacyRef(ref: UnknownRecord): boolean {
