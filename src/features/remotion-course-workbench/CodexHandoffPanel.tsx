@@ -15,7 +15,7 @@ export function CodexHandoffPanel({ reviewNote, latestRequest, dispatch }: Codex
       </div>
       <h2>Local Codex</h2>
       <p className="handoff-boundary">
-        公网部署只展示平台和数据，不调用本地服务。本地生产流读取项目工程文件，生成修改请求或交付打包请求。
+        公网部署只展示平台和 mock 数据，不调用本地服务。本地模式只读取当前 assembly 状态，用来生成动作或 timeline 修改请求。
       </p>
       <label>
         Review 意见

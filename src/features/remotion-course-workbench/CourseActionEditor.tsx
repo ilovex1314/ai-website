@@ -9,6 +9,10 @@ function numberValue(value: number | undefined) {
   return value ?? 0
 }
 
+function opacityValue(value: number | undefined) {
+  return value ?? 0
+}
+
 export function CourseActionEditor({ action, dispatch }: CourseActionEditorProps) {
   return (
     <section className="course-card course-card--editor">
@@ -77,14 +81,66 @@ export function CourseActionEditor({ action, dispatch }: CourseActionEditorProps
           />
         </label>
         <label>
-          颜色
+          边框颜色
           <input
+            type="color"
             value={action.params.color ?? '#2563eb'}
             onChange={(event) =>
               dispatch({
                 type: 'update-action',
                 id: action.id,
                 patch: { params: { color: event.target.value } },
+              })
+            }
+          />
+        </label>
+        <label>
+          边框色值
+          <input readOnly value={action.params.color ?? '#2563eb'} />
+        </label>
+        <label>
+          边框圆角
+          <input
+            type="number"
+            min="0"
+            max="80"
+            value={numberValue(action.params.borderRadius ?? action.params.radius)}
+            onChange={(event) =>
+              dispatch({
+                type: 'update-action',
+                id: action.id,
+                patch: { params: { borderRadius: Number(event.target.value), radius: Number(event.target.value) } },
+              })
+            }
+          />
+        </label>
+        <label>
+          背景颜色
+          <input
+            type="color"
+            value={action.params.backgroundColor ?? '#ffffff'}
+            onChange={(event) =>
+              dispatch({
+                type: 'update-action',
+                id: action.id,
+                patch: { params: { backgroundColor: event.target.value } },
+              })
+            }
+          />
+        </label>
+        <label>
+          背景透明度
+          <input
+            type="number"
+            step="0.05"
+            min="0"
+            max="1"
+            value={opacityValue(action.params.backgroundOpacity)}
+            onChange={(event) =>
+              dispatch({
+                type: 'update-action',
+                id: action.id,
+                patch: { params: { backgroundOpacity: Number(event.target.value) } },
               })
             }
           />

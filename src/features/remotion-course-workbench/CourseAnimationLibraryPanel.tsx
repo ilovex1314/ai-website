@@ -92,7 +92,11 @@ export function CourseAnimationLibraryPanel({
             <small>{actionCategoryLabels[action.category]}</small>
             <small>{action.status}</small>
             <small>{action.version}</small>
-            <em>{action.description}</em>
+            <em>
+              {action.source === 'hyperframes'
+                ? `source: hyperframes · ${action.selector} · ${action.actionSignature}`
+                : action.description}
+            </em>
           </button>
         ))}
       </div>

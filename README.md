@@ -26,21 +26,23 @@ vibe-coding 调研结果拆成一个个可验证的前端能力样例。
 - 动作库子页面：`/topics/remotion-course/actions`
 - 完整地址：`http://127.0.0.1:5173/topics/remotion-course`
 
-这个 topic 的目标不是做一个单条视频，而是搭一个“知识课程/教程口播动画库”
-的微型制作工具。它的主链路是项目内结构化工程文件，Codex handoff 只作为辅助生成、
-修改和交付打包入口。
+这个 topic 的目标是搭一个“课程口播视频组装台 + 教学动画库管理”工具。上游的 topic 总结、
+HyperFrames PPT 分享项目生成、口播文案生成和用户录制，只是输入上下文，不属于当前平台承包的生产系统。
 
-第一阶段包含：
+当前 MVP 包含：
 
-- 素材状态：口播视频、PPT 图片序列、字幕、讲稿等资产状态展示。
+- Media Intake：后台区固定表达为 HyperFrames 项目文件夹，前台区表达为用户录制的口播视频。
+- 后台区 source：`sourceKind: "hyperframes-project"`，`renderedPreview` 只作为预览或兜底，不作为结构化输入。
+- 音频规则：前台口播视频是最终音频主轨，后台 HyperFrames preview 默认静音；总时长跟随后台区，前台短则结束隐藏，前台长则截断。
 - Timeline：按课程片段管理 slide、caption、speaker 布局和动作引用。
 - 动作库：主工作台保留动作库摘要入口；完整动作资产管理拆到子页面，
-  支持 `parametric`、`llm-assisted`、`custom-component` 三类实现模式。
-- Review 预览：选择时间轴片段和动画动作后，用 CSS/HTML 模拟课程画面；
-  拖动预览标注可回写当前动作的 X/Y 参数。
-- 工程包/剪映包思路：把项目、素材、timeline、actions 和导出清单作为稳定源数据，
-  后续可生成 Remotion/HyperFrames/FFmpeg 视频，也可导出剪映/CapCut 分层素材包。
-- 本地 Codex 协作：读取当前工程上下文，辅助生成 timeline、修改动作或打包后期输入文件。
+  支持 `parametric`、`llm-assisted`、`custom-component` 三类实现模式；HyperFrames 检测到但动作库缺失的动画会补成 draft action。
+- Review 预览：选择时间轴片段、seek 播放头、切换 16:9/4:3/9:16 画布比例，
+  并在 mock HyperFrames element map 上选择元素、绑定当前动作。
+- 动作时间尺：展示 segment、action ref、播放头，以及带目标元素名的动作标签。
+- Assembly manifest：只保存当前平台内组装状态，包括 inputs、element map、actions、timeline、
+  foreground window 和 handoff 结构；它不是完整生产链路的 source of truth。
+- 本地 Codex 协作：读取当前 assembly 状态，辅助修改动作或 timeline，并为后续成片/剪映交付预留结构。
 
 复杂动画不强行塞进固定参数表。稳定动作由表单参数管理；复杂动作由 Codex 根据自然语言意图、
 组件契约、上下文和验收标准生成实现草稿，再回写项目动作库。
@@ -52,9 +54,13 @@ vibe-coding 调研结果拆成一个个可验证的前端能力样例。
 公网部署到 Cloudflare 时，这个页面只作为静态前端平台展示，不会尝试连接本地服务；
 `public/_redirects` 会把 `/topics/remotion-course` 和 `/topics/remotion-course/actions`
 这类深层路由回退到 Vite SPA 入口。公网环境使用项目内 mock 数据展示管理端样式和流程，
-不会调用本地 Codex handoff 或外部 LLM agent。
+不会读取用户本地文件夹，也不会调用本地 Codex handoff 或外部 LLM agent。
 本地使用时，它是后续接入 Codex bridge / skill / Remotion / HyperFrames / FFmpeg
-渲染链路的生产力入口。
+渲染链路的组装入口，不替代剪映/CapCut 做完整专业剪辑，也不做泛用 NLE。
+
+项目内本地生产力 skill 草案位于 `tools/course-video-workbench/`。它只作为当前仓库内的
+HyperFrames 项目读取、element map 生成、detected animation 映射、timeline action ref 修改、
+assembly manifest 和后续成片/剪映交付结构说明，不注册成全局 Codex skill。
 
 设计与计划文档：
 

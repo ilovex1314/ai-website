@@ -23,8 +23,11 @@ export type ActionParams = {
   width?: number
   height?: number
   radius?: number
+  borderRadius?: number
   scale?: number
   color?: string
+  backgroundColor?: string
+  backgroundOpacity?: number
   label?: string
   text?: string
   title?: string
@@ -61,6 +64,9 @@ export type AnimationAction = {
   id: string
   name: string
   category: AnimationActionCategory
+  source?: 'manual' | 'hyperframes'
+  selector?: string
+  actionSignature?: string
   description: string
   status: AnimationActionStatus
   version: string
@@ -77,10 +83,17 @@ export type CoursePackageFile = {
 }
 
 export type AnimationActionRef = {
+  id?: string
   actionId: string
   presetId?: string
   from: number
   duration: number
+  fadeInFrames?: number
+  fadeOutFrames?: number
+  exportRole?: 'platform-overlay' | 'hyperframes-internal' | 'background-only'
+  renderedInBackground?: boolean
+  exportableOverlay?: boolean
+  elementId?: string
   params?: ActionParams
 }
 
@@ -99,10 +112,102 @@ export type CourseProject = {
   id: string
   title: string
   platform: string
-  aspectRatio: '16:9' | '9:16'
+  aspectRatio: CanvasAspectRatio
   fps: number
   style: string
   localBridgeMode: 'handoff-only' | 'bridge-ready'
+}
+
+export type CanvasAspectRatio = '16:9' | '4:3' | '9:16'
+
+export type HyperframesProjectSource = {
+  id: string
+  sourceKind: 'hyperframes-project'
+  name: string
+  projectPath: string
+  entryHtml: string
+  designFile?: string
+  assetsDir: string
+  renderedPreview?: string
+  previewMode: 'video' | 'mock' | 'still'
+  sourceAspectRatio: CanvasAspectRatio
+  localPreviewUrl?: string
+  posterUrl?: string
+  structureStatus: {
+    status: 'mock' | 'parsed' | 'missing'
+    scenesParsed: number
+    elementsParsed: number
+    animationsDetected: number
+    missingActionsCreated: number
+  }
+  audioPolicy: 'muted'
+}
+
+export type ForegroundVideoSource = {
+  id: string
+  sourceKind: 'foreground-speaker-video'
+  name: string
+  path: string
+  localPreviewUrl?: string
+  posterUrl?: string
+  durationFrames: number
+  audioPolicy: 'primary'
+}
+
+export type StageElementKind =
+  | 'title'
+  | 'paragraph'
+  | 'code'
+  | 'chart'
+  | 'image'
+  | 'flow-node'
+  | 'caption'
+  | 'unknown'
+
+export type StageElement = {
+  id: string
+  source: 'hyperframes'
+  compositionId: string
+  selector: string
+  kind: StageElementKind
+  label: string
+  frameRange: [number, number]
+  box: { x: number; y: number; width: number; height: number }
+}
+
+export type DetectedHyperframesAnimation = {
+  id: string
+  compositionId: string
+  selector: string
+  actionSignature: string
+  label: string
+  from: number
+  duration: number
+  properties: string[]
+  suggestedActionId: string
+}
+
+export type ForegroundWindow = {
+  x: number
+  y: number
+  width: number
+  height: number
+  shape: 'rounded' | 'circle' | 'portrait' | 'rect'
+  opacity: number
+}
+
+export type CourseStage = {
+  backgroundSource: HyperframesProjectSource
+  foregroundSource: ForegroundVideoSource
+  foregroundWindow: ForegroundWindow
+  canvasAspectRatio: CanvasAspectRatio
+  elements: StageElement[]
+}
+
+export type PlaybackState = {
+  currentFrame: number
+  totalFrames: number
+  isPlaying: boolean
 }
 
 export type CourseAsset = {
@@ -124,11 +229,12 @@ export type CodexHandoffRequest = {
   prompt: string
 }
 
-export type CourseProjectPackage = {
-  root: 'course-project/'
+export type CourseAssemblyManifest = {
+  root: 'course-assembly/'
   files: CoursePackageFile[]
   manifest: {
-    primarySource: 'project-files'
+    scope: 'assembly-only'
+    includes: Array<'inputs' | 'element-map' | 'actions' | 'timeline' | 'foreground-window' | 'handoff'>
     renderTargets: Array<'remotion' | 'hyperframes' | 'ffmpeg'>
     capcutHandoff: string
     projectId: string
@@ -138,11 +244,11 @@ export type CourseProjectPackage = {
 }
 
 export type CapCutHandoffPackage = {
-  root: 'course-project/exports/capcut-handoff/'
+  root: 'course-assembly/handoff/capcut/'
   files: CoursePackageFile[]
   guide: string
   manifest: {
-    tracks: Array<'master' | 'clean-ppt' | 'speaker-pip' | 'overlays' | 'captions'>
+    tracks: Array<'master' | 'background' | 'foreground' | 'overlays' | 'captions'>
     sourceProject: string
     overlayCount: number
   }
@@ -150,11 +256,16 @@ export type CapCutHandoffPackage = {
 
 export type CourseWorkbenchState = {
   project: CourseProject
+  stage: CourseStage
+  playback: PlaybackState
   assets: CourseAsset[]
   timeline: TimelineSegment[]
   actions: AnimationAction[]
+  detectedHyperframesAnimations: DetectedHyperframesAnimation[]
   selectedSegmentId: string
   selectedActionId: string
+  selectedElementId?: string
+  selectedActionRefId?: string
   categoryFilter: AnimationActionCategory | 'all'
   reviewNote: string
   handoffRequests: CodexHandoffRequest[]
@@ -163,11 +274,24 @@ export type CourseWorkbenchState = {
 export type CourseWorkbenchAction =
   | { type: 'select-segment'; id: string }
   | { type: 'select-action'; id: string }
+  | { type: 'set-aspect-ratio'; aspectRatio: CanvasAspectRatio }
+  | { type: 'seek-frame'; frame: number }
+  | { type: 'set-playing'; isPlaying: boolean }
+  | { type: 'select-stage-element'; id: string }
+  | { type: 'select-action-ref'; id: string }
+  | { type: 'bind-selected-action-to-element'; from?: number; duration?: number }
+  | {
+      type: 'update-selected-action-ref'
+      patch: Partial<Pick<AnimationActionRef, 'actionId' | 'from' | 'duration' | 'fadeInFrames' | 'fadeOutFrames'>>
+    }
+  | { type: 'remove-selected-action-ref' }
+  | { type: 'set-foreground-window'; patch: Partial<ForegroundWindow> }
   | { type: 'set-category-filter'; category: AnimationActionCategory | 'all' }
   | { type: 'create-action'; category: AnimationActionCategory }
   | { type: 'update-action'; id: string; patch: Partial<Omit<AnimationAction, 'id' | 'category'>> }
   | { type: 'duplicate-action'; id: string }
   | { type: 'delete-action'; id: string }
   | { type: 'move-selected-action'; x: number; y: number }
+  | { type: 'resize-selected-action'; width: number; height: number; radius?: number }
   | { type: 'set-review-note'; note: string }
   | { type: 'generate-handoff' }

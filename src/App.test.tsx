@@ -82,7 +82,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: /Action Library Studio/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: /复杂动画意图/ })).toBeInTheDocument()
-    expect(screen.getByText(/13 actions/)).toBeInTheDocument()
+    expect(screen.getByText(/14 actions/)).toBeInTheDocument()
     expect(screen.getByText(/LLM-assisted/)).toBeInTheDocument()
     expect(screen.getAllByText(/Codex 负责理解意图和生成实现/).length).toBeGreaterThan(0)
   })

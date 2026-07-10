@@ -28,7 +28,7 @@ export function createDefaultActionParams(category: AnimationActionCategory): Ac
     case 'arrow':
       return { fromX: 24, fromY: 66, toX: 58, toY: 42, color: '#0f766e', label: '看这里' }
     case 'circle':
-      return { x: 62, y: 38, radius: 12, color: '#dc2626', label: '重点数字' }
+      return { x: 14, y: 21, width: 58, height: 18, radius: 18, color: '#ef4444', label: '圈出标题' }
     case 'text-card':
       return { x: 12, y: 60, width: 34, height: 18, color: '#f59e0b', text: '先给结论，再解释原因' }
     case 'lower-third':
@@ -61,7 +61,7 @@ function parametricImplementation(intent: string): AnimationImplementation {
     mode: 'parametric',
     intent,
     componentContract: 'Use existing Remotion action component and update params/presets only.',
-    outputFiles: ['course-project/actions/<action-id>.json'],
+    outputFiles: ['course-assembly/actions.json'],
     acceptance: ['Preview reflects params immediately', 'Timeline refs remain compatible'],
   }
 }
@@ -73,9 +73,9 @@ function llmAssistedImplementation(intent: string): AnimationImplementation {
     componentContract:
       'Codex 负责理解意图和生成实现：补全 schema、Remotion component contract、preview fixture 和 export strategy。',
     outputFiles: [
-      'course-project/actions/<action-id>.json',
+      'course-assembly/actions.json',
       'src/remotion-course/actions/<action-id>.tsx',
-      'course-project/exports/capcut-handoff/overlays/<action-id>-alpha.webm',
+      'course-assembly/handoff/capcut/overlays/<action-id>-alpha.webm',
     ],
     acceptance: [
       '复杂动画可通过自然语言意图复现',
@@ -92,10 +92,10 @@ function customComponentImplementation(intent: string): AnimationImplementation 
     componentContract:
       'Use a dedicated Remotion component with typed props, preview fixture, export test, and transparent overlay support.',
     outputFiles: [
-      'course-project/actions/<action-id>.json',
+      'course-assembly/actions.json',
       'src/remotion-course/actions/<action-id>.tsx',
       'src/remotion-course/actions/<action-id>.fixture.ts',
-      'course-project/exports/capcut-handoff/overlays/<action-id>-alpha.webm',
+      'course-assembly/handoff/capcut/overlays/<action-id>-alpha.webm',
     ],
     acceptance: [
       'Component props are documented and versioned',

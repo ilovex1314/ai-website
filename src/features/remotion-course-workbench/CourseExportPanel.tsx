@@ -1,7 +1,7 @@
-import type { CapCutHandoffPackage, CourseProjectPackage } from './workbenchTypes'
+import type { CapCutHandoffPackage, CourseAssemblyManifest } from './workbenchTypes'
 
 type CourseExportPanelProps = {
-  projectPackage: CourseProjectPackage
+  assemblyManifest: CourseAssemblyManifest
   capcutPackage: CapCutHandoffPackage
 }
 
@@ -9,19 +9,19 @@ function packagePreview(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
-export function CourseExportPanel({ projectPackage, capcutPackage }: CourseExportPanelProps) {
+export function CourseExportPanel({ assemblyManifest, capcutPackage }: CourseExportPanelProps) {
   return (
     <>
       <section className="course-card course-card--project-package">
         <div className="course-card__header">
-          <p>Project Files</p>
-          <span>source of truth</span>
+          <p>Assembly State</p>
+          <span>assembly-only</span>
         </div>
-        <h2>Project Package</h2>
+        <h2>Assembly Manifest</h2>
         <p className="export-note">
-          主链路先保存项目工程文件，Remotion、HyperFrames、FFmpeg、剪映交付和 Codex 都读取这份结构化数据。
+          只保存当前组装台状态：输入源、元素图、动作库、timeline、前台窗口和 handoff，不承包上游生产链路。
         </p>
-        <pre data-testid="project-package-output">{packagePreview(projectPackage)}</pre>
+        <pre data-testid="assembly-manifest-output">{packagePreview(assemblyManifest)}</pre>
       </section>
 
       <section className="course-card course-card--capcut-package">

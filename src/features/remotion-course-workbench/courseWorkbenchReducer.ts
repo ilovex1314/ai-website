@@ -3,8 +3,8 @@ import type {
   AnimationAction,
   CapCutHandoffPackage,
   CodexHandoffRequest,
+  CourseAssemblyManifest,
   CoursePackageFile,
-  CourseProjectPackage,
   CourseWorkbenchAction,
   CourseWorkbenchState,
   TimelineSegment,
@@ -41,6 +41,26 @@ function getSelectedSegment(state: CourseWorkbenchState) {
   return state.timeline.find((segment) => segment.id === state.selectedSegmentId) ?? state.timeline[0]
 }
 
+function findSegmentAtFrame(state: CourseWorkbenchState, frame: number) {
+  return (
+    state.timeline.find((segment) => frame >= segment.from && frame < segment.from + segment.duration)
+    ?? state.timeline.at(-1)
+    ?? state.timeline[0]
+  )
+}
+
+function findActionRefsForElement(state: CourseWorkbenchState, elementId: string) {
+  return state.timeline.flatMap((segment) =>
+    segment.actionRefs
+      .map((ref, index) => ({ segment, ref, index }))
+      .filter(({ ref }) => ref.elementId === elementId),
+  )
+}
+
+function clampFrame(frame: number, totalFrames: number) {
+  return Math.min(Math.max(Math.round(frame), 0), totalFrames)
+}
+
 function nextCustomActionIndex(actions: AnimationAction[]) {
   return actions.filter((action) => action.id.startsWith('custom-')).length + 1
 }
@@ -73,42 +93,51 @@ export function buildCodexHandoffRequest(state: CourseWorkbenchState): CodexHand
   }
 }
 
-export function buildCourseProjectPackage(state: CourseWorkbenchState): CourseProjectPackage {
-  const actionFiles: CoursePackageFile[] = state.actions.map((animationAction) => ({
-    path: `course-project/actions/${animationAction.id}.json`,
-    kind: 'json',
-    description: `${animationAction.name} action definition and presets`,
-  }))
-
+export function buildCourseAssemblyManifest(state: CourseWorkbenchState): CourseAssemblyManifest {
   return {
-    root: 'course-project/',
+    root: 'course-assembly/',
     files: [
       {
-        path: 'course-project/project.json',
+        path: 'course-assembly/inputs.json',
         kind: 'json',
-        description: 'Course project metadata, fps, aspect ratio, target platform, and style',
+        description: 'Background HyperFrames project source and foreground speaker video source',
       },
       {
-        path: 'course-project/assets.json',
+        path: 'course-assembly/element-map.json',
         kind: 'json',
-        description: 'Speaker, slides, captions, script, and export asset registry',
+        description: 'Parsed or mocked HyperFrames element map used by the review stage',
       },
       {
-        path: 'course-project/timeline.json',
+        path: 'course-assembly/actions.json',
         kind: 'json',
-        description: 'Timeline segments, slide references, speaker layouts, captions, and action refs',
+        description: 'Teaching action library including HyperFrames-derived draft actions',
       },
-      ...actionFiles,
       {
-        path: 'course-project/exports/manifest.json',
+        path: 'course-assembly/timeline.json',
         kind: 'json',
-        description: 'Export targets for Remotion, HyperFrames, FFmpeg, and CapCut handoff',
+        description: 'Current assembly timeline with action refs and element bindings',
+      },
+      {
+        path: 'course-assembly/foreground-window.json',
+        kind: 'json',
+        description: 'Foreground speaker window position, size, shape, and opacity',
+      },
+      {
+        path: 'course-assembly/handoff/codex-handoff.json',
+        kind: 'json',
+        description: 'Local Codex handoff payload for action or timeline edits',
+      },
+      {
+        path: 'course-assembly/handoff/capcut-manifest.json',
+        kind: 'json',
+        description: 'Reserved CapCut handoff manifest for later rendering/export',
       },
     ],
     manifest: {
-      primarySource: 'project-files',
+      scope: 'assembly-only',
+      includes: ['inputs', 'element-map', 'actions', 'timeline', 'foreground-window', 'handoff'],
       renderTargets: ['remotion', 'hyperframes', 'ffmpeg'],
-      capcutHandoff: 'course-project/exports/capcut-handoff/manifest.json',
+      capcutHandoff: 'course-assembly/handoff/capcut-manifest.json',
       projectId: state.project.id,
       actionCount: state.actions.length,
       segmentCount: state.timeline.length,
@@ -117,11 +146,12 @@ export function buildCourseProjectPackage(state: CourseWorkbenchState): CoursePr
 }
 
 function overlayFilesForTimeline(state: CourseWorkbenchState): CoursePackageFile[] {
-  const overlayActionIds = state.timeline
-    .flatMap((segment) => segment.actionRefs.map((ref) => ref.actionId))
+  const overlayActionIds = state.timeline.flatMap((segment) =>
+    segment.actionRefs.filter((ref) => ref.exportableOverlay === true).map((ref) => ref.actionId),
+  )
 
   return overlayActionIds.map((actionId, index) => ({
-    path: `course-project/exports/capcut-handoff/overlays/${String(index + 1).padStart(3, '0')}-${actionId}-alpha.webm`,
+    path: `course-assembly/handoff/capcut/overlays/${String(index + 1).padStart(3, '0')}-${actionId}-alpha.webm`,
     kind: 'media',
     description: `${actionId} transparent overlay for CapCut upper track`,
   }))
@@ -129,7 +159,7 @@ function overlayFilesForTimeline(state: CourseWorkbenchState): CoursePackageFile
 
 export function buildCapCutHandoffPackage(state: CourseWorkbenchState): CapCutHandoffPackage {
   const overlayFiles = overlayFilesForTimeline(state)
-  const root = 'course-project/exports/capcut-handoff/'
+  const root = 'course-assembly/handoff/capcut/' as const
 
   return {
     root,
@@ -140,12 +170,13 @@ export function buildCapCutHandoffPackage(state: CourseWorkbenchState): CapCutHa
         description: 'Single-file preview for fast review in CapCut',
       },
       {
-        path: `${root}clean-ppt-video.mp4`,
+        path: `${root}background-clean.mp4`,
         kind: 'media',
-        description: 'PPT background and camera motion without speaker or annotation overlays',
+        description:
+          'Background HyperFrames render, including HyperFrames baked/internal animations but excluding platform annotation overlays',
       },
       {
-        path: `${root}speaker-pip.mp4`,
+        path: `${root}foreground-speaker.mp4`,
         kind: 'media',
         description: 'Speaker picture-in-picture layer with timing aligned to timeline',
       },
@@ -154,11 +185,6 @@ export function buildCapCutHandoffPackage(state: CourseWorkbenchState): CapCutHa
         path: `${root}captions.srt`,
         kind: 'caption',
         description: 'Timed subtitle track for import',
-      },
-      {
-        path: `${root}captions.txt`,
-        kind: 'caption',
-        description: 'Plain caption text for manual editing',
       },
       {
         path: `${root}timeline.csv`,
@@ -180,13 +206,14 @@ export function buildCapCutHandoffPackage(state: CourseWorkbenchState): CapCutHa
       '# 剪映/CapCut 导入顺序',
       '',
       '1. 导入 master-preview.mp4 快速确认整体节奏。',
-      '2. 精修时使用 clean-ppt-video.mp4 作为底轨。',
-      '3. 叠加 speaker-pip.mp4 到人物轨。',
-      '4. 按 timeline.csv 导入 overlays/*.webm 到上层轨道。',
-      '5. 导入 captions.srt 或使用 captions.txt 手动重建字幕。',
+      '2. 精修时使用 background-clean.mp4 作为底轨；background-clean 已包含 HyperFrames 内部动画。',
+      '3. 叠加 foreground-speaker.mp4 到人物轨和主音频轨。',
+      '4. 按 timeline.csv 导入 overlays/*.webm 到上层轨道；overlays 只包含平台新增标注。',
+      '5. 导入 captions.srt 并按 edit-guide.md 微调。',
+      '6. editor-only controls are excluded from all rendered output.',
     ].join('\n'),
     manifest: {
-      tracks: ['master', 'clean-ppt', 'speaker-pip', 'overlays', 'captions'],
+      tracks: ['master', 'background', 'foreground', 'overlays', 'captions'],
       sourceProject: state.project.id,
       overlayCount: overlayFiles.length,
     },
@@ -208,6 +235,169 @@ export function courseWorkbenchReducer(
       return {
         ...state,
         selectedActionId: action.id,
+      }
+
+    case 'set-aspect-ratio':
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          aspectRatio: action.aspectRatio,
+        },
+        stage: {
+          ...state.stage,
+          canvasAspectRatio: action.aspectRatio,
+        },
+      }
+
+    case 'seek-frame': {
+      const currentFrame = clampFrame(action.frame, state.playback.totalFrames)
+      const segment = findSegmentAtFrame(state, currentFrame)
+
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          currentFrame,
+        },
+        selectedSegmentId: segment.id,
+      }
+    }
+
+    case 'set-playing':
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          isPlaying: action.isPlaying,
+        },
+      }
+
+    case 'select-stage-element': {
+      const element = state.stage.elements.find((stageElement) => stageElement.id === action.id)
+      const segment = element ? findSegmentAtFrame(state, element.frameRange[0]) : undefined
+      const firstBoundRef = findActionRefsForElement(state, action.id)[0]
+
+      return {
+        ...state,
+        selectedElementId: action.id,
+        selectedActionRefId: firstBoundRef?.ref.id,
+        selectedActionId: firstBoundRef?.ref.actionId ?? state.selectedActionId,
+        selectedSegmentId: segment?.id ?? state.selectedSegmentId,
+      }
+    }
+
+    case 'select-action-ref': {
+      const selected = state.timeline
+        .flatMap((segment) => segment.actionRefs)
+        .find((ref) => ref.id === action.id)
+
+      return {
+        ...state,
+        selectedActionRefId: action.id,
+        selectedActionId: selected?.actionId ?? state.selectedActionId,
+      }
+    }
+
+    case 'bind-selected-action-to-element': {
+      if (!state.selectedElementId) {
+        return state
+      }
+
+      const selectedSegment = getSelectedSegment(state)
+      const existingRef = state.selectedActionRefId
+        ? selectedSegment.actionRefs.find(
+            (ref) => ref.id === state.selectedActionRefId && ref.elementId === state.selectedElementId,
+          )
+        : undefined
+      const actionRef = {
+        id:
+          existingRef?.id
+          ?? `ref-${selectedSegment.id}-${state.selectedElementId}-${state.selectedActionId}-${selectedSegment.actionRefs.length + 1}`,
+        actionId: state.selectedActionId,
+        elementId: state.selectedElementId,
+        from: action.from ?? existingRef?.from ?? Math.max(state.playback.currentFrame - selectedSegment.from, 0),
+        duration:
+          action.duration
+          ?? existingRef?.duration
+          ?? state.actions.find((libraryAction) => libraryAction.id === state.selectedActionId)
+            ?.defaultDurationFrames
+          ?? 90,
+        fadeInFrames: existingRef?.fadeInFrames ?? 0,
+        fadeOutFrames: existingRef?.fadeOutFrames ?? 0,
+        exportRole: 'platform-overlay' as const,
+        renderedInBackground: false,
+        exportableOverlay: true,
+      }
+
+      return {
+        ...state,
+        selectedActionRefId: actionRef.id,
+        timeline: state.timeline.map((segment) =>
+          segment.id === selectedSegment.id
+            ? {
+                ...segment,
+                actionRefs: existingRef
+                  ? segment.actionRefs.map((ref) => (ref.id === existingRef.id ? actionRef : ref))
+                  : [...segment.actionRefs, actionRef],
+              }
+            : segment,
+        ),
+      }
+    }
+
+    case 'update-selected-action-ref': {
+      if (!state.selectedActionRefId) {
+        return state
+      }
+
+      return {
+        ...state,
+        selectedActionId: action.patch.actionId ?? state.selectedActionId,
+        timeline: state.timeline.map((segment) => ({
+          ...segment,
+          actionRefs: segment.actionRefs.map((ref) =>
+            ref.id === state.selectedActionRefId ? { ...ref, ...action.patch } : ref,
+          ),
+        })),
+      }
+    }
+
+    case 'remove-selected-action-ref': {
+      if (!state.selectedActionRefId) {
+        return state
+      }
+
+      const nextTimeline = state.timeline.map((segment) => ({
+        ...segment,
+        actionRefs: segment.actionRefs.filter((ref) => ref.id !== state.selectedActionRefId),
+      }))
+      const nextState = {
+        ...state,
+        timeline: nextTimeline,
+        selectedActionRefId: undefined,
+      }
+      const nextElementRef = state.selectedElementId
+        ? findActionRefsForElement(nextState, state.selectedElementId)[0]
+        : undefined
+
+      return {
+        ...nextState,
+        selectedActionRefId: nextElementRef?.ref.id,
+        selectedActionId: nextElementRef?.ref.actionId ?? state.selectedActionId,
+      }
+    }
+
+    case 'set-foreground-window':
+      return {
+        ...state,
+        stage: {
+          ...state.stage,
+          foregroundWindow: {
+            ...state.stage.foregroundWindow,
+            ...action.patch,
+          },
+        },
       }
 
     case 'set-category-filter':
@@ -284,6 +474,24 @@ export function courseWorkbenchReducer(
         actions: state.actions.map((existing) =>
           existing.id === state.selectedActionId
             ? { ...existing, params: { ...existing.params, x: action.x, y: action.y } }
+            : existing,
+        ),
+      }
+
+    case 'resize-selected-action':
+      return {
+        ...state,
+        actions: state.actions.map((existing) =>
+          existing.id === state.selectedActionId
+            ? {
+                ...existing,
+                params: {
+                  ...existing.params,
+                  width: action.width,
+                  height: action.height,
+                  radius: action.radius ?? existing.params.radius,
+                },
+              }
             : existing,
         ),
       }

@@ -3,12 +3,176 @@ import { demoAnimationActions } from './animationLibraryModel'
 import { createDefaultCourseWorkbenchState } from './courseWorkbenchData'
 import {
   buildCapCutHandoffPackage,
+  buildCourseAssemblyManifest,
   buildCodexHandoffRequest,
-  buildCourseProjectPackage,
   courseWorkbenchReducer,
 } from './courseWorkbenchReducer'
 
 describe('courseWorkbenchReducer', () => {
+  it('initializes a HyperFrames project folder as the structured background source', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    expect(state.stage.backgroundSource.sourceKind).toBe('hyperframes-project')
+    expect(state.stage.backgroundSource.name).toContain('HyperFrames')
+    expect(state.stage.backgroundSource.projectPath).toContain('codex-keyframes-tutorial')
+    expect(state.stage.backgroundSource.renderedPreview).toContain('codex-keyframes-tutorial.mp4')
+    expect(state.stage.backgroundSource.audioPolicy).toBe('muted')
+    expect(state.stage.foregroundSource.audioPolicy).toBe('primary')
+    expect(state.stage.foregroundSource.name).toContain('codex-keyframes-tutorial.mp4')
+  })
+
+  it('loads the Codex Keyframes Tutorial preset as a vertical 158 second assembly case', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    expect(state.project.title).toBe('Codex Keyframes Tutorial')
+    expect(state.project.aspectRatio).toBe('9:16')
+    expect(state.stage.canvasAspectRatio).toBe('9:16')
+    expect(state.playback.totalFrames).toBe(4740)
+    expect(state.stage.backgroundSource.projectPath).toBe(
+      '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial',
+    )
+    expect(state.stage.backgroundSource.entryHtml).toContain('index.html')
+    expect(state.stage.backgroundSource.designFile).toContain('DESIGN.md')
+    expect(state.stage.backgroundSource.renderedPreview).toBe(
+      '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
+    )
+    expect(state.stage.backgroundSource.sourceAspectRatio).toBe('9:16')
+    expect(state.stage.elements.find((element) => element.id === 'element-video-title')).toMatchObject({
+      label: '视频标题',
+      selector: '#s1 h1',
+      compositionId: 's1',
+      frameRange: [0, 210],
+    })
+    expect(state.actions.find((action) => action.id === 'circle-mark')).toMatchObject({
+      category: 'circle',
+      params: {
+        color: '#ef4444',
+        label: '圈出标题',
+      },
+    })
+    expect(state.stage.foregroundSource.durationFrames).toBe(4740)
+  })
+
+  it('changes canvas aspect ratio while keeping the workbench route public-safe', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    const fourByThree = courseWorkbenchReducer(state, {
+      type: 'set-aspect-ratio',
+      aspectRatio: '4:3',
+    })
+    const portrait = courseWorkbenchReducer(fourByThree, {
+      type: 'set-aspect-ratio',
+      aspectRatio: '9:16',
+    })
+
+    expect(fourByThree.project.aspectRatio).toBe('4:3')
+    expect(fourByThree.stage.canvasAspectRatio).toBe('4:3')
+    expect(portrait.project.aspectRatio).toBe('9:16')
+    expect(portrait.stage.canvasAspectRatio).toBe('9:16')
+  })
+
+  it('seeks by frame and synchronizes the selected segment', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    const inCodeDemo = courseWorkbenchReducer(state, { type: 'seek-frame', frame: 918 })
+    const afterEnd = courseWorkbenchReducer(inCodeDemo, { type: 'seek-frame', frame: 9999 })
+
+    expect(inCodeDemo.playback.currentFrame).toBe(918)
+    expect(inCodeDemo.selectedSegmentId).toBe('seg-code-demo')
+    expect(afterEnd.playback.currentFrame).toBe(afterEnd.playback.totalFrames)
+    expect(afterEnd.selectedSegmentId).toBe('seg-wrap')
+  })
+
+  it('selects a HyperFrames element and binds the selected action to it', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    const selectedElement = courseWorkbenchReducer(state, {
+      type: 'select-stage-element',
+      id: 'element-code-sample',
+    })
+    const bound = courseWorkbenchReducer(selectedElement, {
+      type: 'bind-selected-action-to-element',
+      from: 54,
+      duration: 72,
+    })
+
+    expect(selectedElement.selectedElementId).toBe('element-code-sample')
+    expect(selectedElement.stage.elements.find((element) => element.id === 'element-code-sample')).toMatchObject({
+      source: 'hyperframes',
+      label: '代码示例区域',
+      selector: '#scene-03-code-block',
+    })
+    expect(bound.timeline.find((segment) => segment.id === 'seg-code-demo')?.actionRefs).toContainEqual(
+      expect.objectContaining({
+        actionId: 'circle-mark',
+        elementId: 'element-code-sample',
+        from: 54,
+        duration: 72,
+        exportRole: 'platform-overlay',
+        exportableOverlay: true,
+      }),
+    )
+  })
+
+  it('updates the foreground speaker window without changing media timing rules', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    const updated = courseWorkbenchReducer(state, {
+      type: 'set-foreground-window',
+      patch: {
+        x: 62,
+        y: 58,
+        width: 24,
+        height: 26,
+        shape: 'circle',
+      },
+    })
+
+    expect(updated.stage.foregroundWindow).toMatchObject({
+      x: 62,
+      y: 58,
+      width: 24,
+      height: 26,
+      shape: 'circle',
+    })
+    expect(updated.stage.foregroundSource.audioPolicy).toBe('primary')
+    expect(updated.playback.totalFrames).toBe(4740)
+  })
+
+  it('resizes the selected action overlay for title callouts', () => {
+    const state = createDefaultCourseWorkbenchState()
+    const selectedCircle = courseWorkbenchReducer(state, { type: 'select-action', id: 'circle-mark' })
+    const resized = courseWorkbenchReducer(selectedCircle, {
+      type: 'resize-selected-action',
+      width: 62,
+      height: 18,
+      radius: 18,
+    })
+
+    expect(resized.actions.find((action) => action.id === 'circle-mark')?.params).toMatchObject({
+      width: 62,
+      height: 18,
+      radius: 18,
+    })
+  })
+
+  it('imports detected HyperFrames animations and creates draft actions for missing mappings', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    expect(state.detectedHyperframesAnimations.length).toBeGreaterThanOrEqual(1)
+    expect(state.detectedHyperframesAnimations[0]).toMatchObject({
+      selector: expect.any(String),
+      actionSignature: expect.any(String),
+      suggestedActionId: expect.any(String),
+    })
+    expect(state.actions.find((action) => action.id === 'marker-sweep')).toMatchObject({
+      status: 'draft',
+      implementation: {
+        mode: 'custom-component',
+      },
+    })
+  })
+
   it('starts with reusable teaching actions and a selected timeline segment', () => {
     const state = createDefaultCourseWorkbenchState()
 
@@ -27,10 +191,13 @@ describe('courseWorkbenchReducer', () => {
       'spotlight',
       'transition',
     ])
-    expect(state.actions).toHaveLength(13)
-    expect(state.selectedActionId).toBe('highlight-box')
+    expect(state.actions).toHaveLength(14)
+    expect(state.selectedActionId).toBe('circle-mark')
     expect(state.selectedSegmentId).toBe('seg-intro')
-    expect(state.timeline[0].actionRefs[0]).toMatchObject({ actionId: 'lower-third' })
+    expect(state.timeline[0].actionRefs[0]).toMatchObject({
+      actionId: 'circle-mark',
+      elementId: 'element-video-title',
+    })
     expect(state.actions.find((action) => action.id === 'slide-zoom')).toMatchObject({
       implementation: {
         mode: 'llm-assisted',
@@ -53,6 +220,7 @@ describe('courseWorkbenchReducer', () => {
         'before-after-wipe',
         'spotlight-mask',
         'chapter-transition',
+        'marker-sweep',
       ]),
     )
     expect(state.actions.find((action) => action.id === 'before-after-wipe')?.implementation.mode).toBe(
@@ -144,7 +312,7 @@ describe('courseWorkbenchReducer', () => {
       y: 42,
     })
 
-    expect(moved.actions.find((action) => action.id === 'highlight-box')?.params).toMatchObject({
+    expect(moved.actions.find((action) => action.id === 'circle-mark')?.params).toMatchObject({
       x: 34,
       y: 42,
     })
@@ -163,8 +331,8 @@ describe('courseWorkbenchReducer', () => {
       environment: 'local-only',
       projectPath: '/Volumes/2TB-NVMe/work/ai-website',
       action: {
-        id: 'highlight-box',
-        category: 'highlight',
+        id: 'circle-mark',
+        category: 'circle',
       },
       segment: {
         id: 'seg-intro',
@@ -177,63 +345,85 @@ describe('courseWorkbenchReducer', () => {
     expect(generated.handoffRequests[0]).toEqual(request)
   })
 
-  it('builds a project package as the primary source of truth', () => {
+  it('builds a lightweight course assembly manifest for workbench state only', () => {
     const state = createDefaultCourseWorkbenchState()
-    const projectPackage = buildCourseProjectPackage(state)
+    const assemblyManifest = buildCourseAssemblyManifest(state)
 
-    expect(projectPackage.root).toBe('course-project/')
-    expect(projectPackage.files.map((file) => file.path)).toEqual([
-      'course-project/project.json',
-      'course-project/assets.json',
-      'course-project/timeline.json',
-      'course-project/actions/highlight-box.json',
-      'course-project/actions/arrow-callout.json',
-      'course-project/actions/circle-mark.json',
-      'course-project/actions/text-card.json',
-      'course-project/actions/lower-third.json',
-      'course-project/actions/slide-zoom.json',
-      'course-project/actions/course-progress.json',
-      'course-project/actions/step-reveal.json',
-      'course-project/actions/cursor-click.json',
-      'course-project/actions/code-line-highlight.json',
-      'course-project/actions/before-after-wipe.json',
-      'course-project/actions/spotlight-mask.json',
-      'course-project/actions/chapter-transition.json',
-      'course-project/exports/manifest.json',
+    expect(assemblyManifest.root).toBe('course-assembly/')
+    expect(assemblyManifest.files.map((file) => file.path)).toEqual([
+      'course-assembly/inputs.json',
+      'course-assembly/element-map.json',
+      'course-assembly/actions.json',
+      'course-assembly/timeline.json',
+      'course-assembly/foreground-window.json',
+      'course-assembly/handoff/codex-handoff.json',
+      'course-assembly/handoff/capcut-manifest.json',
     ])
-    expect(projectPackage.manifest.primarySource).toBe('project-files')
-    expect(projectPackage.manifest.renderTargets).toEqual(['remotion', 'hyperframes', 'ffmpeg'])
-    expect(projectPackage.manifest.capcutHandoff).toBe('course-project/exports/capcut-handoff/manifest.json')
+    expect(assemblyManifest.manifest.scope).toBe('assembly-only')
+    expect(assemblyManifest.manifest.includes).toEqual([
+      'inputs',
+      'element-map',
+      'actions',
+      'timeline',
+      'foreground-window',
+      'handoff',
+    ])
+    expect(assemblyManifest.manifest.capcutHandoff).toBe('course-assembly/handoff/capcut-manifest.json')
   })
 
-  it('builds a CapCut handoff package from the project package', () => {
+  it('builds a CapCut handoff package with only user-bound platform overlays', () => {
     const state = createDefaultCourseWorkbenchState()
     const capcutPackage = buildCapCutHandoffPackage(state)
 
-    expect(capcutPackage.root).toBe('course-project/exports/capcut-handoff/')
+    expect(capcutPackage.root).toBe('course-assembly/handoff/capcut/')
     expect(capcutPackage.files.map((file) => file.path)).toEqual([
-      'course-project/exports/capcut-handoff/master-preview.mp4',
-      'course-project/exports/capcut-handoff/clean-ppt-video.mp4',
-      'course-project/exports/capcut-handoff/speaker-pip.mp4',
-      'course-project/exports/capcut-handoff/overlays/001-lower-third-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/002-highlight-box-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/003-course-progress-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/004-arrow-callout-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/005-text-card-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/006-spotlight-mask-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/007-cursor-click-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/008-code-line-highlight-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/009-step-reveal-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/010-before-after-wipe-alpha.webm',
-      'course-project/exports/capcut-handoff/overlays/011-chapter-transition-alpha.webm',
-      'course-project/exports/capcut-handoff/captions.srt',
-      'course-project/exports/capcut-handoff/captions.txt',
-      'course-project/exports/capcut-handoff/timeline.csv',
-      'course-project/exports/capcut-handoff/edit-guide.md',
-      'course-project/exports/capcut-handoff/manifest.json',
+      'course-assembly/handoff/capcut/master-preview.mp4',
+      'course-assembly/handoff/capcut/background-clean.mp4',
+      'course-assembly/handoff/capcut/foreground-speaker.mp4',
+      'course-assembly/handoff/capcut/overlays/001-circle-mark-alpha.webm',
+      'course-assembly/handoff/capcut/captions.srt',
+      'course-assembly/handoff/capcut/timeline.csv',
+      'course-assembly/handoff/capcut/edit-guide.md',
+      'course-assembly/handoff/capcut/manifest.json',
     ])
     expect(capcutPackage.guide).toContain('剪映/CapCut 导入顺序')
-    expect(capcutPackage.manifest.tracks).toEqual(['master', 'clean-ppt', 'speaker-pip', 'overlays', 'captions'])
-    expect(capcutPackage.manifest.overlayCount).toBe(11)
+    expect(capcutPackage.guide).toContain('background-clean 已包含 HyperFrames 内部动画')
+    expect(capcutPackage.guide).toContain('overlays 只包含平台新增标注')
+    expect(capcutPackage.guide).toContain('editor-only controls are excluded')
+    expect(capcutPackage.manifest.tracks).toEqual(['master', 'background', 'foreground', 'overlays', 'captions'])
+    expect(capcutPackage.manifest.overlayCount).toBe(1)
+  })
+
+  it('does not export HyperFrames detected or background-only action refs as overlay files', () => {
+    const state = createDefaultCourseWorkbenchState()
+    const withInternalHyperframesRef = {
+      ...state,
+      timeline: state.timeline.map((segment) =>
+        segment.id === 'seg-concept'
+          ? {
+              ...segment,
+              actionRefs: [
+                ...segment.actionRefs,
+                {
+                  id: 'ref-hf-marker-sweep-internal',
+                  actionId: 'marker-sweep',
+                  elementId: 'element-flow-node',
+                  from: 0,
+                  duration: 64,
+                  exportRole: 'hyperframes-internal' as const,
+                  renderedInBackground: true,
+                  exportableOverlay: false,
+                },
+              ],
+            }
+          : segment,
+      ),
+    }
+
+    const capcutPackage = buildCapCutHandoffPackage(withInternalHyperframesRef)
+    const overlayPaths = capcutPackage.files.map((file) => file.path).filter((path) => path.includes('/overlays/'))
+
+    expect(overlayPaths).toEqual(['course-assembly/handoff/capcut/overlays/001-circle-mark-alpha.webm'])
+    expect(JSON.stringify(capcutPackage)).not.toContain('marker-sweep-alpha.webm')
   })
 })
