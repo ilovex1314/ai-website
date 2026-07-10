@@ -151,3 +151,54 @@ Fresh real fixture copy:
 - Migrated copy validator result: `VALID`.
 - Original `index.html` SHA-256 remained `c77ba1bb0ac4b60ce41c33d266493f56bdb1da92637656be0a68bb33997ac341`.
 - Migrated temporary copy SHA-256: `9931bceb1e62f4df464d4d9ca22f811cfc6703de38284a3affb99e51e1ddd577`.
+
+## Final Re-review Findings To Fix
+
+1. Reject symlink escapes for every project artifact destination before mkdir/write: `hyperframes`, thumbnail directories, `sources`, maps, and source/media manifest leaf files.
+2. Runtime visibility sampling must not force the target scene visible; preserve source-computed visibility while isolating other scenes or separate measurement from thumbnail staging.
+3. Persist selectors with correctly escaped `data-hf-element-id` values so every contract-valid ID remains selectable.
+
+Add RED/GREEN regressions for output-directory/leaf symlinks, legitimately hidden target scenes, and CSS-special IDs. Run focused tests, real fixture import, build, commit Task 4 files, append evidence and commit hash.
+
+## Final Re-review Fix Evidence
+
+Final implementation commit: `e452d33` (`修复：完成 Task 4 最终审查项`)
+
+### 1. Artifact Destination and Leaf Symlink Containment
+
+- RED: ten cases followed symlinks at `hyperframes`, thumbnail roots/aspect directories, `sources`, all map/report leaves, and both source/media manifest leaves.
+- GREEN: all ten reject with `PROJECT_ARTIFACT_PATH_NOT_ALLOWED` before outside writes.
+- Import preflights every artifact directory and leaf before artifact creation, then rechecks each destination immediately before mkdir/write.
+- Artifact leaf writes and thumbnail writes use `O_NOFOLLOW` in addition to canonical containment.
+
+### 2. Preserve Target-scene Visibility
+
+- RED: an element inside a source scene with `visibility:hidden` was incorrectly reported as visible for the full scene.
+- GREEN: the element keeps an empty `{ fromFrame: 0, toFrame: 0 }` range.
+- Runtime measurement no longer changes the target scene. Thumbnail staging hides only other scenes and restores their original inline visibility immediately afterward.
+
+### 3. CSS-safe Persisted Selectors
+
+- RED: an ID containing a quote, backslash, colon, brackets, space, hash, and dot produced an invalid selector.
+- GREEN: CSS string escaping preserves the exact ID, and the persisted selector resolves to exactly one matching declared element.
+
+## Final Re-review Verification
+
+- Focused command: `npm test -- importer.test.ts app.test.ts CourseProjectIntake.test.tsx RemotionCourseWorkbench.test.tsx`
+- Result: 5 test files passed, 82 tests passed, 0 failed.
+- Build command: `npm run build`
+- Result: TypeScript and Vite build passed; only the existing bundle-size advisory remains.
+- The final focused importer run created a fresh temporary copy of the real external fixture and imported it with all three aspect viewports.
+
+Live real fixture copy:
+
+`/Volumes/2TB-NVMe/work/.course-workbench-task4-final.qzPdsz/fixture`
+
+- Scan: HTTP 200, `migration-required`, recognized 0, needs metadata 44, unresolved 0.
+- Apply: HTTP 201, `ready`, 11 scenes, 33 elements, 0 action instances.
+- Visibility: 6 nonempty ranges and 27 source-computed empty ranges.
+- Media: H.264, 1080 x 1920, 30 fps, 157.533333 seconds, 4726 frames, audio present.
+- Thumbnails: 33 references and 33 persisted nonempty PNGs.
+- Selectors: all 33 persisted selectors resolved uniquely against the migrated HTML.
+- Copied source validator result: `VALID`.
+- Original source SHA-256 remained `c77ba1bb0ac4b60ce41c33d266493f56bdb1da92637656be0a68bb33997ac341`.
