@@ -113,6 +113,13 @@ function timestamp(): string {
   return new Date().toISOString().replace(/[:.]/g, '-')
 }
 
+function numericAttribute(element: HyperframesHtmlElement, name: string): number | undefined {
+  const raw = element.getAttribute(name)
+  if (raw === null || raw.trim().length === 0) return undefined
+  const value = Number(raw)
+  return Number.isFinite(value) && value >= 0 ? value : undefined
+}
+
 export async function planHyperframesMigration(root: string): Promise<HyperframesMigrationPlan> {
   const htmlPath = join(root, 'index.html')
   const manifestPath = join(root, 'animation-manifest.json')
@@ -204,6 +211,32 @@ export async function planHyperframesMigration(root: string): Promise<Hyperframe
     }
   } catch {
     // Legacy projects without a parseable manifest receive deterministic metadata.
+  }
+
+  const timedScenes = scenes.map((scene, sceneIndex) => {
+    const fallback = manifest.scenes[sceneIndex] ?? manifestScenes[sceneIndex]
+    const startSeconds = numericAttribute(scene, 'data-start')
+    const durationSeconds = numericAttribute(scene, 'data-duration')
+
+    return {
+      id: manifestScenes[sceneIndex].id,
+      fromFrame: startSeconds === undefined ? fallback.fromFrame : Math.round(startSeconds * manifest.fps),
+      durationFrames:
+        durationSeconds === undefined ? fallback.durationFrames : Math.max(1, Math.round(durationSeconds * manifest.fps)),
+    }
+  })
+  const timedDuration = Math.max(1, ...timedScenes.map((scene) => scene.fromFrame + scene.durationFrames))
+
+  if (
+    JSON.stringify(manifest.scenes) !== JSON.stringify(timedScenes)
+    || manifest.durationInFrames !== timedDuration
+  ) {
+    manifest = {
+      ...manifest,
+      durationInFrames: timedDuration,
+      scenes: timedScenes,
+    }
+    manifestChanged = true
   }
 
   return {

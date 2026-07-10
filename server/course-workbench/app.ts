@@ -6,7 +6,11 @@ import { join, relative } from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ZodError } from 'zod'
-import { parseCourseProject, type CourseProjectV2 } from '../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
+import {
+  DEFAULT_FOREGROUND_WINDOW,
+  parseCourseProject,
+  type CourseProjectV2,
+} from '../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
 import type { WorkbenchConfig } from './config.js'
 import { importHyperframesProject } from './hyperframes/importer.js'
 import { probeMedia } from './mediaProbe.js'
@@ -192,7 +196,10 @@ async function receiveForeground(
   request: IncomingMessage,
   config: WorkbenchConfig,
   project: CourseProjectV2,
-): Promise<{ relativePath: string; metadata: Awaited<ReturnType<typeof probeMedia>> }> {
+): Promise<{
+  manifest: { relativePath: string; metadata: Awaited<ReturnType<typeof probeMedia>> }
+  source: NonNullable<CourseProjectV2['source']['foreground']>
+}> {
   const fileName = uploadFileName(request)
   const pathOptions = {
     allowMissing: true,
@@ -285,7 +292,16 @@ async function receiveForeground(
         `${JSON.stringify({ ...mediaManifest, foreground }, null, 2)}\n`,
       ),
     ])
-    return foreground
+    return {
+      manifest: foreground,
+      source: {
+        id: project.source.foreground?.id ?? 'foreground-speaker',
+        mediaUrl: `/@fs${destination}`,
+        durationFrames: metadata.durationFrames,
+        audioPolicy: 'primary',
+        window: project.source.foreground?.window ?? DEFAULT_FOREGROUND_WINDOW,
+      },
+    }
   } finally {
     await rm(temporary, { force: true }).catch(() => undefined)
   }
@@ -362,7 +378,14 @@ export function createWorkbenchServer(config: WorkbenchConfig): Server {
       if (method === 'POST' && foregroundProjectId !== undefined) {
         const project = await repository.load(foregroundProjectId)
         const foreground = await receiveForeground(request, config, project)
-        sendJson(response, 201, { foreground })
+        await repository.save({
+          ...project,
+          source: {
+            ...project.source,
+            foreground: foreground.source,
+          },
+        })
+        sendJson(response, 201, { foreground: foreground.manifest, source: foreground.source })
         return
       }
 

@@ -24,6 +24,18 @@ async function copyRealFixture(): Promise<{ fixture: string; sourceRoot: string 
   const sourceRoot = await temporaryDirectory('course-workbench-real-source-')
   const fixture = join(sourceRoot, basename(realFixture))
   await execFileAsync('cp', ['-cR', realFixture, fixture])
+  const htmlPath = join(fixture, 'index.html')
+  const legacyHtml = (await readFile(htmlPath, 'utf8'))
+    .replace(/\sdata-hf-scene-id="[^"]*"/gu, '')
+    .replace(/\sdata-hf-element-id="[^"]*"/gu, '')
+    .replace(/\sdata-hf-role="[^"]*"/gu, '')
+  await writeFile(htmlPath, legacyHtml)
+  await rm(join(fixture, 'animation-manifest.json'), { force: true })
+  await rm(join(fixture, 'renders', 'workbench-background.mp4'), { force: true })
+  const metaPath = join(fixture, 'meta.json')
+  const metadata = JSON.parse(await readFile(metaPath, 'utf8')) as Record<string, unknown>
+  delete metadata.renderedPreview
+  await writeFile(metaPath, `${JSON.stringify(metadata, null, 2)}\n`)
   return { fixture, sourceRoot }
 }
 
@@ -93,8 +105,8 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
     expect(imported.sourceDimensions).toEqual({ width: 1080, height: 1920 })
     expect(Object.keys(imported.sceneMap)).toHaveLength(11)
     expect(Object.keys(imported.elementMap).length).toBeGreaterThan(20)
-    expect(imported.bakedAnimationMap).toEqual({})
-    expect(imported.project.source.bakedAnimations).toEqual([])
+    expect(Object.keys(imported.bakedAnimationMap).length).toBe(Object.keys(imported.elementMap).length)
+    expect(imported.project.source.bakedAnimations).toHaveLength(Object.keys(imported.elementMap).length)
     expect(imported.project.actionInstances).toEqual([])
     expect(imported.backgroundMedia).toMatchObject({
       relativePath: 'renders/codex-keyframes-tutorial.mp4',
@@ -109,6 +121,8 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
     expect(imported.backgroundMedia?.metadata.durationSeconds).toBeCloseTo(157.55, 1)
 
     const migratedHtml = await readFile(join(fixture, 'index.html'), 'utf8')
+    expect(imported.project.durationFrames).toBe(imported.backgroundMedia?.metadata.durationFrames)
+    expect(imported.project.source.background.mediaUrl).toContain('/@fs/')
     expect(migratedHtml).toContain('data-hf-element-id=')
     expect(migratedHtml).not.toBe(htmlBefore)
 
@@ -138,7 +152,7 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
     await expect(readFile(join(persistedBase, 'project.json'), 'utf8')).resolves.toContain(imported.project.id)
     await expect(readFile(join(persistedBase, 'hyperframes', 'scene-map.json'), 'utf8')).resolves.toContain('scene-01')
     await expect(readFile(join(persistedBase, 'hyperframes', 'element-map.json'), 'utf8')).resolves.toContain('rectsByAspect')
-    await expect(readFile(join(persistedBase, 'hyperframes', 'baked-animation-map.json'), 'utf8')).resolves.toContain('{}')
+    await expect(readFile(join(persistedBase, 'hyperframes', 'baked-animation-map.json'), 'utf8')).resolves.toContain('runtime-scene-01')
     await expect(readFile(join(persistedBase, 'hyperframes', 'migration-report.json'), 'utf8')).resolves.toContain('needsMetadata')
     await expect(readFile(join(persistedBase, 'sources', 'source-manifest.json'), 'utf8')).resolves.toContain('fingerprints')
     await expect(readFile(join(persistedBase, 'sources', 'media-manifest.json'), 'utf8')).resolves.toContain('hasAudio')

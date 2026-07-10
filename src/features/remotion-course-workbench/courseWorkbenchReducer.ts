@@ -7,10 +7,99 @@ import type {
   CoursePackageFile,
   CourseWorkbenchAction,
   CourseWorkbenchState,
+  HyperframesImportPayload,
+  StageElement,
+  StageElementKind,
   TimelineSegment,
 } from './workbenchTypes'
 
 const localProjectPath = '/Volumes/2TB-NVMe/work/ai-website'
+
+const compositionDimensions = {
+  '16:9': { width: 1920, height: 1080 },
+  '4:3': { width: 1440, height: 1080 },
+  '9:16': { width: 1080, height: 1920 },
+} as const
+
+function stageElementKind(role: string): StageElementKind {
+  if (role === 'title') return 'title'
+  if (role === 'body' || role === 'paragraph') return 'paragraph'
+  if (role === 'image') return 'image'
+  if (role === 'code') return 'code'
+  if (role === 'chart') return 'chart'
+  if (role === 'caption') return 'caption'
+  return 'unknown'
+}
+
+function containedBox(
+  rect: { x: number; y: number; width: number; height: number },
+  source: { width: number; height: number },
+  target: { width: number; height: number },
+) {
+  const scale = Math.min(target.width / source.width, target.height / source.height)
+  const renderedWidth = source.width * scale
+  const renderedHeight = source.height * scale
+  const offsetX = (target.width - renderedWidth) / 2
+  const offsetY = (target.height - renderedHeight) / 2
+
+  return {
+    x: ((offsetX + rect.x * scale) / target.width) * 100,
+    y: ((offsetY + rect.y * scale) / target.height) * 100,
+    width: ((rect.width * scale) / target.width) * 100,
+    height: ((rect.height * scale) / target.height) * 100,
+  }
+}
+
+function importedStageElements(payload: HyperframesImportPayload): StageElement[] {
+  return Object.values(payload.elementMap).map((element) => {
+    const sourceRect =
+      element.rectsByAspect[payload.project.activeAspectRatio]
+      ?? Object.values(element.rectsByAspect)[0]
+      ?? { x: 0, y: 0, width: 0, height: 0 }
+    const boxesByAspect = Object.fromEntries(
+      Object.entries(compositionDimensions).map(([aspect, dimensions]) => [
+        aspect,
+        containedBox(sourceRect, payload.sourceDimensions, dimensions),
+      ]),
+    ) as StageElement['boxesByAspect']
+
+    return {
+      id: element.id,
+      source: 'hyperframes',
+      compositionId: element.sceneId,
+      selector: element.selector,
+      kind: stageElementKind(element.role),
+      label: element.text.trim() || `${element.role} · ${element.id}`,
+      frameRange: [element.visibility.fromFrame, element.visibility.toFrame],
+      box: boxesByAspect?.[payload.project.activeAspectRatio]
+        ?? containedBox(sourceRect, payload.sourceDimensions, compositionDimensions[payload.project.activeAspectRatio]),
+      boxesByAspect,
+    }
+  })
+}
+
+function importedTimeline(payload: HyperframesImportPayload): TimelineSegment[] {
+  const elements = Object.values(payload.elementMap)
+
+  return Object.values(payload.sceneMap)
+    .sort((left, right) => left.fromFrame - right.fromFrame)
+    .map((scene, index) => {
+      const sceneElements = elements.filter((element) => element.sceneId === scene.id)
+      const title = sceneElements.find((element) => element.role === 'title')?.text.trim()
+      const caption = sceneElements.find((element) => element.role === 'body')?.text.trim()
+
+      return {
+        id: scene.id,
+        title: title || `场景 ${index + 1}`,
+        from: scene.fromFrame,
+        duration: scene.durationFrames,
+        slide: index + 1,
+        speaker: 'right-bottom',
+        caption: caption || title || '',
+        actionRefs: [],
+      }
+    })
+}
 
 function cloneAction(action: AnimationAction): AnimationAction {
   return {
@@ -225,6 +314,96 @@ export function courseWorkbenchReducer(
   action: CourseWorkbenchAction,
 ): CourseWorkbenchState {
   switch (action.type) {
+    case 'hydrate-hyperframes-import': {
+      const payload = action.payload
+      const elements = importedStageElements(payload)
+      const timeline = importedTimeline(payload)
+      const declaredAnimations = Object.values(payload.bakedAnimationMap)
+      const detectedAnimations = declaredAnimations.length > 0
+        ? declaredAnimations
+        : Object.values(payload.elementMap).map((element) => ({
+            id: `baked-${element.id}`,
+            sceneId: element.sceneId,
+            elementId: element.id,
+            fromFrame: element.visibility.fromFrame,
+            durationFrames: Math.max(1, element.visibility.toFrame - element.visibility.fromFrame),
+            kind: 'hyperframes-runtime',
+            properties: ['opacity', 'transform'],
+            exportRole: 'baked-internal' as const,
+          }))
+      const background = payload.project.source.background
+
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          id: payload.project.id,
+          title: payload.project.title,
+          fps: payload.project.fps,
+          aspectRatio: payload.project.activeAspectRatio,
+        },
+        stage: {
+          ...state.stage,
+          canvasAspectRatio: payload.project.activeAspectRatio,
+          backgroundSource: {
+            ...state.stage.backgroundSource,
+            id: background.id,
+            name: payload.project.title,
+            projectPath: background.projectPath,
+            entryHtml: background.entryHtml,
+            assetsDir: background.assetsDir,
+            sourceAspectRatio: background.sourceAspectRatio,
+            previewMode: background.mediaUrl ? 'video' : 'still',
+            localPreviewUrl: background.mediaUrl,
+            renderedPreview: background.mediaUrl,
+            structureStatus: {
+              status: 'parsed',
+              scenesParsed: timeline.length,
+              elementsParsed: elements.length,
+              animationsDetected: detectedAnimations.length,
+              missingActionsCreated: 0,
+            },
+          },
+          elements,
+        },
+        playback: {
+          currentFrame: 0,
+          totalFrames: payload.project.durationFrames,
+          isPlaying: false,
+        },
+        timeline,
+        detectedHyperframesAnimations: detectedAnimations.map((animation) => ({
+          id: animation.id,
+          compositionId: animation.sceneId,
+          selector: payload.elementMap[animation.elementId]?.selector ?? '',
+          actionSignature: animation.kind,
+          label: `${payload.elementMap[animation.elementId]?.text || animation.elementId} · HyperFrames 内置动画`,
+          from: animation.fromFrame,
+          duration: animation.durationFrames,
+          properties: animation.properties,
+          suggestedActionId: animation.kind,
+        })),
+        selectedSegmentId: timeline[0]?.id ?? state.selectedSegmentId,
+        selectedElementId: undefined,
+        selectedActionRefId: undefined,
+      }
+    }
+
+    case 'hydrate-foreground-upload':
+      return {
+        ...state,
+        stage: {
+          ...state.stage,
+          foregroundSource: {
+            ...state.stage.foregroundSource,
+            name: action.payload.name,
+            path: action.payload.relativePath,
+            localPreviewUrl: action.payload.mediaUrl,
+            durationFrames: action.payload.durationFrames,
+          },
+        },
+      }
+
     case 'select-segment':
       return {
         ...state,
@@ -323,8 +502,8 @@ export function courseWorkbenchReducer(
           ?? state.actions.find((libraryAction) => libraryAction.id === state.selectedActionId)
             ?.defaultDurationFrames
           ?? 90,
-        fadeInFrames: existingRef?.fadeInFrames ?? 0,
-        fadeOutFrames: existingRef?.fadeOutFrames ?? 0,
+        fadeInFrames: action.fadeInFrames ?? existingRef?.fadeInFrames ?? 0,
+        fadeOutFrames: action.fadeOutFrames ?? existingRef?.fadeOutFrames ?? 0,
         exportRole: 'platform-overlay' as const,
         renderedInBackground: false,
         exportableOverlay: true,

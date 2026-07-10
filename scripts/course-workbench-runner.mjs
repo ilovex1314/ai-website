@@ -1,11 +1,14 @@
 import { execFile, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { basename, delimiter, dirname, resolve } from 'node:path'
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const viteCli = resolve(workspaceRoot, 'node_modules/vite/bin/vite.js')
 const tsxCli = resolve(workspaceRoot, 'node_modules/tsx/dist/cli.mjs')
 const workbenchStart = resolve(workspaceRoot, 'server/course-workbench/start.ts')
+const workspaceParent = basename(dirname(workspaceRoot)) === '.worktrees'
+  ? resolve(workspaceRoot, '../../..')
+  : dirname(workspaceRoot)
 
 export function createWindowsTreeKiller(executeFile = execFile) {
   return (pid) => executeFile('taskkill', ['/PID', String(pid), '/T', '/F'], () => undefined)
@@ -64,10 +67,16 @@ export function createCourseWorkbenchRunner({
 
   return {
     async run() {
-      const options = { cwd, detached: platform !== 'win32', stdio: 'inherit' }
+      const environment = {
+        ...process.env,
+        WORKBENCH_ALLOWED_SOURCE_ROOTS:
+          process.env.WORKBENCH_ALLOWED_SOURCE_ROOTS
+          ?? [workspaceParent, workspaceRoot].join(delimiter),
+      }
+      const options = { cwd, detached: platform !== 'win32', env: environment, stdio: 'inherit' }
       try {
         children.push(spawnProcess(process.execPath, [tsxCli, 'watch', workbenchStart], options))
-        children.push(spawnProcess(process.execPath, [viteCli], options))
+        children.push(spawnProcess(process.execPath, [viteCli, '--host', '127.0.0.1'], options))
       } catch {
         stop('SIGTERM')
         return 1

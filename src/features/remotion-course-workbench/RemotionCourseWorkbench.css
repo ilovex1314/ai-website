@@ -577,8 +577,7 @@
   background: #020617;
 }
 
-.preview-player-shell,
-.preview-editor-overlay {
+.preview-player-shell {
   position: absolute;
   inset: 0;
 }
@@ -589,7 +588,10 @@
   height: 100%;
 }
 
-.preview-editor-overlay {
+.preview-editor-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   z-index: 10;
   pointer-events: none;
 }
@@ -796,13 +798,24 @@
 }
 
 .course-action-overlay {
-  animation: none;
+  animation: none !important;
   cursor: default;
+  transition: none !important;
 }
 
-.preview-editor-action {
+.course-composition .course-action-overlay * {
+  animation: none !important;
+  transition: none !important;
+}
+
+.action-selection-box {
+  position: absolute;
   z-index: 12;
-  background: rgba(255, 255, 255, 0.14);
+  border: 2px dashed rgba(56, 189, 248, 0.95);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.3);
+  pointer-events: none;
 }
 
 .action-move-handle {

@@ -27,7 +27,26 @@ const migrationRequired: CourseProjectIntakeResult = {
 
 const ready: CourseProjectIntakeResult = {
   status: 'ready',
-  project: { id: 'course-01' },
+  project: {
+    id: 'course-01',
+    title: 'Course 01',
+    fps: 30,
+    durationFrames: 300,
+    activeAspectRatio: '16:9',
+    source: {
+      background: {
+        id: 'hf-course-01',
+        projectPath: '/allowed/course',
+        entryHtml: 'index.html',
+        assetsDir: 'assets',
+        sourceAspectRatio: '16:9',
+      },
+    },
+  },
+  sourceDimensions: { width: 1920, height: 1080 },
+  sceneMap: {},
+  elementMap: {},
+  bakedAnimationMap: {},
   migrationReport: {
     summary: { recognized: 4, needsMetadata: 7, unresolved: 0 },
     applied: true,

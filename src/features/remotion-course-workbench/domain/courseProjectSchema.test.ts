@@ -7,6 +7,7 @@ const validFixture = {
   id: 'codex-keyframes-tutorial',
   title: 'Codex Keyframes Tutorial',
   fps: 30,
+  durationFrames: 600,
   activeAspectRatio: '9:16',
   source: {
     background: {
@@ -15,6 +16,14 @@ const validFixture = {
       entryHtml: 'index.html',
       assetsDir: 'assets',
       sourceAspectRatio: '9:16',
+      mediaUrl: '/media/background.mp4',
+    },
+    foreground: {
+      id: 'foreground-speaker',
+      mediaUrl: '/media/foreground.mp4',
+      durationFrames: 420,
+      audioPolicy: 'primary',
+      window: { x: 64, y: 58, width: 24, height: 30, shape: 'rounded', opacity: 0.9 },
     },
     bakedAnimations: [
       {
@@ -82,6 +91,11 @@ const legacyWorkbenchState = {
     aspectRatio: '9:16',
     fps: 30,
   },
+  playback: {
+    currentFrame: 0,
+    totalFrames: 600,
+    isPlaying: false,
+  },
   stage: {
     backgroundSource: {
       id: 'legacy-hyperframes',
@@ -89,7 +103,15 @@ const legacyWorkbenchState = {
       entryHtml: 'index.html',
       assetsDir: 'assets',
       sourceAspectRatio: '9:16',
+      localPreviewUrl: '/@fs/projects/legacy-course/background.mp4',
     },
+    foregroundSource: {
+      id: 'foreground-speaker',
+      localPreviewUrl: '/@fs/projects/legacy-course/foreground.mp4',
+      durationFrames: 420,
+      audioPolicy: 'primary',
+    },
+    foregroundWindow: { x: 64, y: 58, width: 24, height: 30, shape: 'rounded', opacity: 0.9 },
   },
   actions: [
     {
@@ -138,6 +160,20 @@ const legacyWorkbenchState = {
 }
 
 describe('CourseProjectV2 schema', () => {
+  it('keeps duration and both media layers in the canonical typed project', () => {
+    const project = parseCourseProject(validFixture)
+
+    expect(project.durationFrames).toBe(600)
+    expect(project.source.background.mediaUrl).toBe('/media/background.mp4')
+    expect(project.source.foreground).toEqual({
+      id: 'foreground-speaker',
+      mediaUrl: '/media/foreground.mp4',
+      durationFrames: 420,
+      audioPolicy: 'primary',
+      window: { x: 64, y: 58, width: 24, height: 30, shape: 'rounded', opacity: 0.9 },
+    })
+  })
+
   it('keeps template defaults separate from instance overrides', () => {
     const project = parseCourseProject(validFixture)
 
@@ -299,6 +335,15 @@ describe('CourseProjectV2 schema', () => {
   it('migrates legacy actions into independent timeline instances', () => {
     const project = migrateLegacyWorkbenchState(legacyWorkbenchState)
 
+    expect(project.durationFrames).toBe(600)
+    expect(project.source.background.mediaUrl).toBe('/@fs/projects/legacy-course/background.mp4')
+    expect(project.source.foreground).toMatchObject({
+      id: 'foreground-speaker',
+      mediaUrl: '/@fs/projects/legacy-course/foreground.mp4',
+      durationFrames: 420,
+      audioPolicy: 'primary',
+      window: legacyWorkbenchState.stage.foregroundWindow,
+    })
     expect(project.actionTemplates).toHaveLength(1)
     expect(project.actionTemplates[0]).toMatchObject({
       id: 'circle-mark',

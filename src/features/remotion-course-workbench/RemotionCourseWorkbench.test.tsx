@@ -1,13 +1,92 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDefaultCourseWorkbenchState } from './courseWorkbenchData'
 import { CoursePreviewStage } from './CoursePreviewStage'
 import { RemotionCourseWorkbench } from './RemotionCourseWorkbench'
 
+const playerHarness = vi.hoisted(() => ({
+  frame: 0,
+  emitFrame: undefined as ((frame: number) => void) | undefined,
+  play: vi.fn(),
+  pause: vi.fn(),
+  seekTo: vi.fn(),
+}))
+
+vi.mock('remotion', () => ({
+  AbsoluteFill: ({ children, ...props }: React.ComponentProps<'div'>) => <div {...props}>{children}</div>,
+  OffthreadVideo: ({ volume, muted, ...props }: React.ComponentProps<'video'> & { volume?: number }) => (
+    <video {...props} data-muted={String(Boolean(muted))} data-volume={String(volume ?? 1)} />
+  ),
+  Video: ({ volume, muted, ...props }: React.ComponentProps<'video'> & { volume?: number }) => (
+    <video {...props} data-muted={String(Boolean(muted))} data-volume={String(volume ?? 1)} />
+  ),
+  Sequence: ({ children, durationInFrames }: React.PropsWithChildren<{ durationInFrames?: number }>) => (
+    <div data-duration-in-frames={durationInFrames}>{children}</div>
+  ),
+  useCurrentFrame: () => playerHarness.frame,
+}))
+
+vi.mock('@remotion/player', async () => {
+  const React = await import('react')
+
+  return {
+    Player: React.forwardRef(function MockPlayer(
+      props: {
+        component: React.ComponentType<Record<string, unknown>>
+        inputProps: Record<string, unknown>
+        initialFrame?: number
+      },
+      ref,
+    ) {
+      const listeners = React.useRef(new Map<string, (event: { detail: { frame: number } }) => void>())
+      const [frame, setFrame] = React.useState(props.initialFrame ?? 0)
+      const Component = props.component
+      playerHarness.frame = frame
+
+      const seekTo = (nextFrame: number) => {
+        playerHarness.seekTo(nextFrame)
+        playerHarness.frame = nextFrame
+        setFrame(nextFrame)
+        listeners.current.get('frameupdate')?.({ detail: { frame: nextFrame } })
+      }
+
+      React.useImperativeHandle(ref, () => ({
+        addEventListener: (name: string, listener: (event: { detail: { frame: number } }) => void) => {
+          listeners.current.set(name, listener)
+        },
+        removeEventListener: (name: string) => listeners.current.delete(name),
+        getContainerNode: () => null,
+        getCurrentFrame: () => playerHarness.frame,
+        getScale: () => 1,
+        isPlaying: () => false,
+        pause: () => {
+          playerHarness.pause()
+          listeners.current.get('pause')?.({ detail: { frame: playerHarness.frame } })
+        },
+        play: () => {
+          playerHarness.play()
+          listeners.current.get('play')?.({ detail: { frame: playerHarness.frame } })
+        },
+        seekTo,
+      }))
+      playerHarness.emitFrame = seekTo
+
+      return (
+        <div data-testid="mock-remotion-player">
+          <Component {...props.inputProps} />
+        </div>
+      )
+    }),
+  }
+})
+
 beforeEach(() => {
-  vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve())
-  vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined)
+  playerHarness.frame = 0
+  playerHarness.emitFrame = undefined
+  playerHarness.play.mockClear()
+  playerHarness.pause.mockClear()
+  playerHarness.seekTo.mockClear()
 })
 
 afterEach(() => {
@@ -61,7 +140,8 @@ describe('RemotionCourseWorkbench', () => {
     const actionOverlay = container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')
 
     expect(mediaFrame).toHaveAttribute('data-source-aspect-ratio', '9:16')
-    expect(mediaFrame).toContainElement(screen.getByTestId('background-preview-video'))
+    expect(mediaFrame).toContainElement(screen.getByTestId('course-remotion-player'))
+    expect(screen.getByTestId('background-video')).toHaveAttribute('data-volume', '0')
     expect(mediaFrame).toContainElement(titleElement as HTMLElement)
     expect(mediaFrame).toContainElement(actionOverlay as HTMLElement)
     expect(screen.getByTestId('preview-canvas')).not.toBe(titleElement?.parentElement)
@@ -83,17 +163,15 @@ describe('RemotionCourseWorkbench', () => {
     const user = userEvent.setup()
     render(<RemotionCourseWorkbench />)
 
-    const backgroundVideo = screen.getByTestId('background-preview-video') as HTMLVideoElement
-    const videoSource = backgroundVideo.querySelector('source')
+    const backgroundVideo = screen.getByTestId('background-video')
 
-    expect(backgroundVideo.muted).toBe(true)
-    expect(backgroundVideo.playsInline).toBe(true)
-    expect(backgroundVideo).toHaveStyle({ pointerEvents: 'none' })
-    expect(videoSource).toHaveAttribute(
+    expect(backgroundVideo).toHaveAttribute('data-muted', 'true')
+    expect(backgroundVideo).toHaveAttribute('data-volume', '0')
+    expect(backgroundVideo).toHaveAttribute(
       'src',
       expect.stringContaining('/@fs/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial'),
     )
-    expect(videoSource).toHaveAttribute('src', expect.stringContaining('codex-keyframes-tutorial.mp4'))
+    expect(backgroundVideo).toHaveAttribute('src', expect.stringContaining('codex-keyframes-tutorial.mp4'))
 
     await user.click(screen.getByRole('button', { name: /视频标题/ }))
     expect(screen.getAllByText('已选元素：视频标题')).toHaveLength(2)
@@ -102,39 +180,35 @@ describe('RemotionCourseWorkbench', () => {
   it('renders the foreground speaker video as the draggable primary-audio window', () => {
     render(<RemotionCourseWorkbench />)
 
-    const foregroundVideo = screen.getByTestId('foreground-preview-video') as HTMLVideoElement
-    const foregroundSource = foregroundVideo.querySelector('source')
+    const foregroundVideo = screen.getByTestId('foreground-video')
 
-    expect(foregroundVideo.muted).toBe(false)
-    expect(foregroundVideo.playsInline).toBe(true)
+    expect(foregroundVideo).toHaveAttribute('data-muted', 'false')
+    expect(foregroundVideo).toHaveAttribute('data-volume', '1')
     expect(foregroundVideo).toHaveClass('preview-speaker__video')
     expect(window.getComputedStyle(foregroundVideo).objectFit).toBe('contain')
-    expect(foregroundSource).toHaveAttribute('src', expect.stringContaining('codex-keyframes-tutorial.mp4'))
+    expect(foregroundVideo).toHaveAttribute('src', expect.stringContaining('codex-keyframes-tutorial.mp4'))
     expect(screen.queryByText('口播')).not.toBeInTheDocument()
   })
 
-  it('updates the playback frame and slider from the background video timeupdate without writing video time back', () => {
+  it('updates the playback frame and slider from the authoritative Player frame event', () => {
     render(<RemotionCourseWorkbench />)
 
-    const backgroundVideo = screen.getByTestId('background-preview-video') as HTMLVideoElement
-    const foregroundVideo = screen.getByTestId('foreground-preview-video') as HTMLVideoElement
-    backgroundVideo.currentTime = 2
-    foregroundVideo.currentTime = 2
-    fireEvent.timeUpdate(backgroundVideo)
+    act(() => playerHarness.emitFrame?.(60))
 
     expect(screen.getByLabelText('播放头')).toHaveValue('60')
     expect(screen.getByText('60 / 4740f')).toBeInTheDocument()
-    expect(foregroundVideo.currentTime).toBe(2)
+    expect(screen.getByTestId('background-video')).toBeInTheDocument()
+    expect(screen.getByTestId('foreground-video')).toBeInTheDocument()
   })
 
   it('renders action overlays only for active timeline ranges', () => {
     const { container } = render(<RemotionCourseWorkbench />)
 
     expect(container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')).not.toBeInTheDocument()
-    expect(screen.getByText('Active action: lower-third')).toBeInTheDocument()
+    expect(screen.getByText('Active action: none')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '20' } })
-    expect(container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')).toHaveClass('preview-action--circle')
+    expect(container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')).toHaveClass('action-selection-box')
     expect(container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')).toHaveAttribute(
       'data-animation-phase',
       'enter',
@@ -157,7 +231,7 @@ describe('RemotionCourseWorkbench', () => {
     expect(screen.getByText('Active action: none')).toBeInTheDocument()
   })
 
-  it('throttles playback timeupdate dispatches to avoid render loops during playback', () => {
+  it('deduplicates repeated Player frame events to avoid render loops during playback', () => {
     const state = createDefaultCourseWorkbenchState()
     const dispatch = vi.fn()
 
@@ -175,11 +249,9 @@ describe('RemotionCourseWorkbench', () => {
       />,
     )
 
-    const backgroundVideo = screen.getByTestId('background-preview-video') as HTMLVideoElement
-    backgroundVideo.currentTime = 20
-    fireEvent.timeUpdate(backgroundVideo)
-    fireEvent.timeUpdate(backgroundVideo)
-    fireEvent.timeUpdate(backgroundVideo)
+    playerHarness.emitFrame?.(600)
+    playerHarness.emitFrame?.(600)
+    playerHarness.emitFrame?.(600)
 
     expect(dispatch).toHaveBeenCalledTimes(1)
     expect(dispatch).toHaveBeenCalledWith({ type: 'seek-frame', frame: 600 })
@@ -197,28 +269,23 @@ describe('RemotionCourseWorkbench', () => {
     expect(screen.getByTestId('element-inspector')).toHaveTextContent('尚未绑定动画')
   })
 
-  it('plays, pauses, and seeks both media tracks from the review controls', async () => {
+  it('plays, pauses, and seeks the single Remotion Player from the review controls', async () => {
     const user = userEvent.setup()
-    const playSpy = vi.mocked(window.HTMLMediaElement.prototype.play)
-    const pauseSpy = vi.mocked(window.HTMLMediaElement.prototype.pause)
 
     render(<RemotionCourseWorkbench />)
-    playSpy.mockClear()
-    pauseSpy.mockClear()
 
     await user.click(screen.getByRole('button', { name: '播放' }))
 
-    await waitFor(() => expect(playSpy.mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(playerHarness.play).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button', { name: '暂停' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '60' } })
 
-    expect((screen.getByTestId('background-preview-video') as HTMLVideoElement).currentTime).toBe(2)
-    expect((screen.getByTestId('foreground-preview-video') as HTMLVideoElement).currentTime).toBe(2)
+    expect(playerHarness.seekTo).toHaveBeenCalledWith(60)
 
     await user.click(screen.getByRole('button', { name: '暂停' }))
 
-    await waitFor(() => expect(pauseSpy).toHaveBeenCalledTimes(2))
+    expect(playerHarness.pause).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to the mock slide when no local preview url is available', () => {
@@ -250,13 +317,9 @@ describe('RemotionCourseWorkbench', () => {
       />,
     )
 
-    expect(screen.queryByTestId('background-preview-video')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('foreground-preview-video')).not.toBeInTheDocument()
-    expect(screen.getByTestId('preview-canvas')).toHaveTextContent('首屏标题：Codex 实战')
-    expect(screen.getByTestId('preview-canvas')).toHaveTextContent(
-      '玩转 AI · Codex 实战：12 张分镜图怎么做成视频？',
-    )
-    expect(screen.getByTestId('preview-canvas')).toHaveTextContent('local preview source unavailable')
+    expect(screen.queryByTestId('background-video')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('foreground-video')).not.toBeInTheDocument()
+    expect(screen.getByTestId('background-unavailable')).toHaveTextContent('HyperFrames Project')
   })
 
   it('plays, pauses, seeks, selects an element, and binds the current action to it', async () => {
@@ -290,9 +353,10 @@ describe('RemotionCourseWorkbench', () => {
 
     expect(screen.getByTestId('action-time-ruler')).toHaveTextContent('circle-mark → 视频标题')
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '30' } })
-    const circleOverlay = container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')
-    expect(circleOverlay).toHaveClass('preview-action--circle')
-    expect(circleOverlay).toHaveTextContent('圈出标题')
+    const circleSelection = container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')
+    expect(circleSelection).toHaveClass('action-selection-box')
+    expect(circleSelection).not.toHaveTextContent('圈出标题')
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveTextContent('圈出标题')
   })
 
   it('selects a stage element box in the real browser click path and reveals the binder', async () => {
@@ -359,7 +423,7 @@ describe('RemotionCourseWorkbench', () => {
 
   it('edits the selected DOM binding timing and params from Element Inspector', async () => {
     const user = userEvent.setup()
-    const { container } = render(<RemotionCourseWorkbench />)
+    render(<RemotionCourseWorkbench />)
 
     await user.click(screen.getByRole('button', { name: /视频标题/ }))
     const inspector = screen.getByTestId('element-inspector')
@@ -381,7 +445,7 @@ describe('RemotionCourseWorkbench', () => {
     expect(inspector).toHaveTextContent('fadeIn 6f')
     expect(inspector).toHaveTextContent('fadeOut 9f')
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '40' } })
-    expect(container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')).toHaveTextContent('标题红圈')
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveTextContent('标题红圈')
     expect(screen.getByTestId('action-time-ruler')).toHaveTextContent('circle-mark → 视频标题')
   })
 
@@ -520,7 +584,7 @@ describe('RemotionCourseWorkbench', () => {
 
   it('edits action params and updates the review preview immediately', async () => {
     const user = userEvent.setup()
-    const { container } = render(<RemotionCourseWorkbench />)
+    render(<RemotionCourseWorkbench />)
 
     await user.clear(screen.getByLabelText('动作名称'))
     await user.type(screen.getByLabelText('动作名称'), '核心定义高亮')
@@ -530,14 +594,14 @@ describe('RemotionCourseWorkbench', () => {
 
     expect(screen.getByRole('button', { name: /核心定义高亮/ })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '30' } })
-    expect(container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')).toHaveTextContent('结构化输入')
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveTextContent('结构化输入')
     expect(screen.getByLabelText('边框颜色')).toHaveAttribute('type', 'color')
     expect(screen.getByLabelText('边框颜色')).toHaveValue('#d97706')
   })
 
   it('edits overlay radius and background styling from action params', async () => {
     const user = userEvent.setup()
-    const { container } = render(<RemotionCourseWorkbench />)
+    render(<RemotionCourseWorkbench />)
 
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '30' } })
 
@@ -547,7 +611,7 @@ describe('RemotionCourseWorkbench', () => {
     await user.clear(screen.getByLabelText('背景透明度'))
     await user.type(screen.getByLabelText('背景透明度'), '0.35')
 
-    const circleOverlay = container.querySelector('[data-action-ref-id="ref-title-circle-mark"]')
+    const circleOverlay = screen.getByTestId('action-overlay-ref-title-circle-mark')
     expect(circleOverlay).toHaveStyle({
       borderRadius: '22px',
       backgroundColor: 'rgba(254, 243, 199, 0.35)',
@@ -584,36 +648,26 @@ describe('RemotionCourseWorkbench', () => {
       />,
     )
 
-    expect(screen.getByTestId('preview-action')).toHaveClass('preview-action--circle')
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveClass('preview-action--circle')
     expect(screen.queryByRole('button', { name: /视频标题/ })).not.toBeInTheDocument()
     expect(screen.queryByTestId('action-move-handle')).not.toBeInTheDocument()
     expect(screen.queryByTestId('action-resize-handle')).not.toBeInTheDocument()
     expect(screen.queryByTestId('foreground-resize-handle')).not.toBeInTheDocument()
   })
 
-  it('shows an animated action review instead of a static placeholder', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<RemotionCourseWorkbench />)
+  it('renders platform action content only in Composition and excludes baked action refs', () => {
+    render(<RemotionCourseWorkbench />)
 
     expect(screen.getByText('进场 · 强调 · 退场')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /重播动作/ })).toBeInTheDocument()
-    expect(screen.getByTestId('preview-action')).toHaveAttribute(
-      'data-animation-phase',
-      'emphasis',
-    )
+    fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '30' } })
 
-    await user.click(screen.getByRole('button', { name: /光标点击提示/ }))
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveTextContent('圈出标题')
+    expect(screen.getByTestId('action-selection-ref-title-circle-mark')).not.toHaveTextContent('圈出标题')
+
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '920' } })
-
-    expect(screen.getByTestId('preview-action')).toHaveClass('preview-action--cursor')
-    expect(screen.getByTestId('preview-action')).toHaveTextContent('点击')
-
-    await user.click(screen.getAllByRole('button', { name: /代码行高亮/ }).at(-1)!)
-    fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '950' } })
-
-    const codeOverlay = container.querySelector('[data-action-ref-id="ref-code-highlight"]')
-    expect(codeOverlay).toHaveClass('preview-action--code')
-    expect(codeOverlay).toHaveTextContent('line 6')
+    expect(screen.queryByTestId('action-overlay-ref-code-cursor')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('action-selection-ref-code-cursor')).not.toBeInTheDocument()
   })
 
   it('duplicates and deletes the selected action', async () => {

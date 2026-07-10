@@ -1,4 +1,4 @@
-import { AbsoluteFill, OffthreadVideo, Sequence } from 'remotion'
+import { AbsoluteFill, OffthreadVideo, Sequence, Video } from 'remotion'
 import type { CourseProjectV2 } from '../domain/courseProjectSchema'
 import type { CanvasAspectRatio } from '../workbenchTypes'
 import { ActionOverlayLayer } from './ActionOverlayLayer'
@@ -28,6 +28,7 @@ type RenderProject = CourseProjectV2 & {
 export type CourseCompositionProps = {
   project: CourseProjectV2
   aspectRatio: CanvasAspectRatio
+  interactive?: boolean
 }
 
 export const compositionDimensions: Record<CanvasAspectRatio, { width: number; height: number }> = {
@@ -83,7 +84,7 @@ export function selectForegroundMedia(project: CourseProjectV2): ForegroundMedia
   }
 }
 
-export function CourseComposition({ project, aspectRatio }: CourseCompositionProps) {
+export function CourseComposition({ project, aspectRatio, interactive = false }: CourseCompositionProps) {
   const durationInFrames = selectCourseDurationFrames(project)
   const backgroundMediaUrl = selectBackgroundMediaUrl(project)
   const foreground = selectForegroundMedia(project)
@@ -96,20 +97,34 @@ export function CourseComposition({ project, aspectRatio }: CourseCompositionPro
     >
       <Sequence durationInFrames={durationInFrames} premountFor={project.fps}>
         {backgroundMediaUrl ? (
-          <OffthreadVideo
-            className="course-composition__background preview-background-video"
-            data-testid="background-video"
-            muted
-            src={backgroundMediaUrl}
-            volume={0}
-          />
+          interactive ? (
+            <Video
+              className="course-composition__background preview-background-video"
+              data-testid="background-video"
+              muted
+              src={backgroundMediaUrl}
+              volume={0}
+            />
+          ) : (
+            <OffthreadVideo
+              className="course-composition__background preview-background-video"
+              data-testid="background-video"
+              muted
+              src={backgroundMediaUrl}
+              volume={0}
+            />
+          )
         ) : (
           <AbsoluteFill className="course-composition__media-missing" data-testid="background-unavailable">
             <strong>{project.title}</strong>
           </AbsoluteFill>
         )}
       </Sequence>
-      <ForegroundLayer foreground={foreground} projectDurationFrames={durationInFrames} />
+      <ForegroundLayer
+        foreground={foreground}
+        interactive={interactive}
+        projectDurationFrames={durationInFrames}
+      />
       <ActionOverlayLayer aspectRatio={aspectRatio} project={project} />
     </AbsoluteFill>
   )

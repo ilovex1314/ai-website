@@ -3,13 +3,12 @@ import { forwardRef, useImperativeHandle } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CoursePreviewStage } from '../CoursePreviewStage'
 import { createDefaultCourseWorkbenchState } from '../courseWorkbenchData'
-import type { CourseProjectV2 } from '../domain/courseProjectSchema'
+import { parseCourseProject } from '../domain/courseProjectSchema'
 import { CourseComposition } from './CourseComposition'
 import { calculateCourseMetadata, RemotionRoot } from './Root'
 
 let remotionFrame = 0
 let emitPlayerFrame: ((frame: number) => void) | undefined
-
 vi.mock('remotion', () => ({
   AbsoluteFill: ({ children, ...props }: React.ComponentProps<'div'>) => <div {...props}>{children}</div>,
   Composition: ({ id, durationInFrames, fps, width, height }: Record<string, unknown>) => (
@@ -22,6 +21,9 @@ vi.mock('remotion', () => ({
     />
   ),
   OffthreadVideo: ({ volume, muted, ...props }: React.ComponentProps<'video'> & { volume?: number }) => (
+    <video {...props} data-muted={String(Boolean(muted))} data-volume={String(volume ?? 1)} />
+  ),
+  Video: ({ volume, muted, ...props }: React.ComponentProps<'video'> & { volume?: number }) => (
     <video {...props} data-muted={String(Boolean(muted))} data-volume={String(volume ?? 1)} />
   ),
   Sequence: ({ children, durationInFrames }: React.PropsWithChildren<{ durationInFrames?: number }>) => (
@@ -67,26 +69,7 @@ vi.mock('@remotion/player', () => ({
   }),
 }))
 
-type FixtureProject = CourseProjectV2 & {
-  durationFrames: number
-  source: CourseProjectV2['source'] & {
-    background: CourseProjectV2['source']['background'] & { mediaUrl: string }
-    foreground: {
-      mediaUrl: string
-      durationFrames: number
-      window: {
-        x: number
-        y: number
-        width: number
-        height: number
-        shape: 'rounded'
-        opacity: number
-      }
-    }
-  }
-}
-
-const fixture: FixtureProject = {
+const fixture = parseCourseProject({
   version: 2,
   id: 'course-composition-fixture',
   title: 'Course Composition Fixture',
@@ -103,8 +86,10 @@ const fixture: FixtureProject = {
       mediaUrl: '/background.mp4',
     },
     foreground: {
+      id: 'foreground-speaker',
       mediaUrl: '/foreground.mp4',
       durationFrames: 300,
+      audioPolicy: 'primary',
       window: { x: 64, y: 58, width: 24, height: 30, shape: 'rounded', opacity: 0.9 },
     },
     bakedAnimations: [
@@ -162,7 +147,7 @@ const fixture: FixtureProject = {
       layoutByAspect: {},
     },
   ],
-}
+})
 
 function setRemotionFrame(frame: number) {
   remotionFrame = frame
@@ -198,7 +183,7 @@ describe('CourseComposition', () => {
       ...fixture,
       source: {
         ...fixture.source,
-        foreground: { ...fixture.source.foreground, durationFrames: 900 },
+        foreground: { ...fixture.source.foreground!, durationFrames: 900 },
       },
     }
 
@@ -225,6 +210,14 @@ describe('CourseComposition', () => {
     expect(screen.queryByTestId('action-overlay-later-circle')).not.toBeInTheDocument()
     expect(screen.queryByText('baked-title-pop')).not.toBeInTheDocument()
     expect(document.querySelector('[data-editor-only="true"]')).not.toBeInTheDocument()
+  })
+
+  it('hard-disables wall-clock animation for exported overlays and descendants', () => {
+    render(<CourseComposition project={fixture} aspectRatio="9:16" />)
+    expect(screen.getByTestId('action-overlay-active-circle')).toHaveStyle({
+      animation: 'none',
+      transition: 'none',
+    })
   })
 })
 
@@ -272,5 +265,64 @@ describe('CoursePreviewStage', () => {
 
     emitPlayerFrame?.(42)
     expect(dispatch).toHaveBeenCalledWith({ type: 'seek-frame', frame: 42 })
+  })
+
+  it('draws geometry-only action selection without duplicating composition content', () => {
+    const state = createDefaultCourseWorkbenchState()
+
+    render(
+      <CoursePreviewStage
+        action={state.actions[0]}
+        segment={state.timeline[0]}
+        stage={state.stage}
+        playback={{ ...state.playback, currentFrame: 30 }}
+        timeline={state.timeline}
+        actions={state.actions}
+        selectedElementId={state.stage.elements[0].id}
+        fps={state.project.fps}
+        dispatch={vi.fn()}
+      />,
+    )
+
+    const selection = screen.getByTestId('action-selection-ref-title-circle-mark')
+    expect(selection.querySelector('span, strong, small, i')).toBeNull()
+    expect(selection).not.toHaveClass('preview-action')
+    expect(selection).not.toHaveTextContent('圈出标题')
+    expect(screen.getByTestId('action-overlay-ref-title-circle-mark')).toHaveTextContent('圈出标题')
+  })
+
+  it('places the editor canvas with the same contain scale and letterbox offsets as Player', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 1000,
+      height: 1000,
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 1000,
+      bottom: 1000,
+      toJSON: () => ({}),
+    })
+    const state = createDefaultCourseWorkbenchState()
+
+    render(
+      <CoursePreviewStage
+        action={state.actions[0]}
+        segment={state.timeline[0]}
+        stage={state.stage}
+        playback={{ ...state.playback, currentFrame: 30 }}
+        timeline={state.timeline}
+        actions={state.actions}
+        fps={state.project.fps}
+        dispatch={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('preview-editor-canvas')).toHaveStyle({
+      width: '1080px',
+      height: '1920px',
+      transform: 'translate(218.75px, 0px) scale(0.5208333333333334)',
+      transformOrigin: 'top left',
+    })
   })
 })

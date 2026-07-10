@@ -1,7 +1,7 @@
 import { Player } from '@remotion/player'
 import type { CallbackListener, PlayerRef } from '@remotion/player'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, PointerEvent, ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, PointerEvent } from 'react'
 import { migrateLegacyWorkbenchState } from './domain/courseProjectMigration'
 import type { CourseProjectV2 } from './domain/courseProjectSchema'
 import {
@@ -10,6 +10,7 @@ import {
 } from './remotion/CourseComposition'
 import { resolveActionOverlay } from './remotion/ActionOverlayLayer'
 import { resolveForegroundWindowStyle } from './remotion/ForegroundLayer'
+import { calculateContainTransform, editorCanvasStyle } from './remotion/PreviewGeometry'
 import type {
   AnimationAction,
   AnimationActionRef,
@@ -96,29 +97,6 @@ function actionPhase(ref: AnimationActionRef, absoluteFrame: number, segmentFrom
   return 'emphasis'
 }
 
-function previewText(action: AnimationAction) {
-  return action.params.label ?? action.params.text ?? action.params.title ?? action.name
-}
-
-function renderActionPreview(action: AnimationAction, text: string): ReactNode {
-  switch (action.category) {
-    case 'progress':
-      return <><span>{text}</span><i aria-hidden="true" /></>
-    case 'step-reveal':
-      return <><span>{text}</span><small>{action.params.step ?? 1}/{action.params.totalSteps ?? 4}</small></>
-    case 'cursor':
-      return <><span aria-hidden="true" /><strong>{text}</strong></>
-    case 'code':
-      return <><span>line {action.params.line ?? 1}</span><strong>{text}</strong></>
-    case 'comparison':
-      return <><span>Before</span><strong>{text}</strong><span>After</span></>
-    case 'transition':
-      return <><strong>{action.params.title ?? text}</strong><span>{action.params.subtitle ?? 'Next section'}</span></>
-    default:
-      return text
-  }
-}
-
 function isPlatformOverlay(ref: AnimationActionRef) {
   return (
     ref.exportRole === 'platform-overlay' &&
@@ -134,6 +112,34 @@ function buildCompositionProject(
   fps: number,
   durationFrames: number,
 ): CourseProjectV2 {
+  const previewStage: CourseStage = {
+    ...stage,
+    foregroundSource: {
+      ...stage.foregroundSource,
+      durationFrames: Math.max(1, Math.round(stage.foregroundSource.durationFrames) || 1),
+    },
+    foregroundWindow: {
+      ...stage.foregroundWindow,
+      width: Math.max(1, stage.foregroundWindow.width || 1),
+      height: Math.max(1, stage.foregroundWindow.height || 1),
+    },
+  }
+  const previewActions = actions.map((candidate) => ({
+    ...candidate,
+    name: candidate.name.trim() || candidate.id,
+    description: candidate.description.trim() || candidate.id,
+    version: candidate.version.trim() || '0.0.0-draft',
+    defaultDurationFrames: Math.max(1, Math.round(candidate.defaultDurationFrames) || 1),
+  }))
+  const previewTimeline = timeline.map((timelineSegment) => ({
+    ...timelineSegment,
+    actionRefs: timelineSegment.actionRefs.map((ref) => ({
+      ...ref,
+      duration: Math.max(1, Math.round(ref.duration) || 1),
+      fadeInFrames: Math.max(0, Math.round(ref.fadeInFrames ?? 0) || 0),
+      fadeOutFrames: Math.max(0, Math.round(ref.fadeOutFrames ?? 0) || 0),
+    })),
+  }))
   const migrated = migrateLegacyWorkbenchState({
     project: {
       id: stage.backgroundSource.id.replace(/^hf-/u, '') || stage.backgroundSource.id,
@@ -141,20 +147,19 @@ function buildCompositionProject(
       aspectRatio: stage.canvasAspectRatio,
       fps,
     },
-    stage,
-    timeline,
-    actions,
+    stage: previewStage,
+    timeline: previewTimeline,
+    actions: previewActions,
   })
   const elementMap = Object.fromEntries(
     stage.elements.map((element) => [
       element.id,
       {
-        rectsByAspect: {
-          [stage.canvasAspectRatio]: element.box,
-        },
+        rectsByAspect: element.boxesByAspect ?? { [stage.canvasAspectRatio]: element.box },
       },
     ]),
   )
+  const foregroundMediaUrl = previewStage.foregroundSource.localPreviewUrl
 
   return {
     ...migrated,
@@ -169,11 +174,17 @@ function buildCompositionProject(
             ? stage.backgroundSource.localPreviewUrl
             : undefined,
       },
-      foreground: {
-        durationFrames: stage.foregroundSource.durationFrames,
-        mediaUrl: stage.foregroundSource.localPreviewUrl,
-        window: stage.foregroundWindow,
-      },
+      ...(foregroundMediaUrl
+        ? {
+            foreground: {
+              id: previewStage.foregroundSource.id,
+              durationFrames: previewStage.foregroundSource.durationFrames,
+              mediaUrl: foregroundMediaUrl,
+              audioPolicy: 'primary' as const,
+              window: previewStage.foregroundWindow,
+            },
+          }
+        : {}),
     },
     elementMap,
   } as CourseProjectV2
@@ -199,11 +210,14 @@ export function CoursePreviewStage({
   dispatch,
 }: CoursePreviewStageProps) {
   const [dragState, setDragState] = useState<DragState | undefined>()
+  const [previewSize, setPreviewSize] = useState(() => compositionDimensions[stage.canvasAspectRatio])
   const playerRef = useRef<PlayerRef>(null)
+  const previewMediaFrameRef = useRef<HTMLDivElement>(null)
   const lastDispatchedFrameRef = useRef(playback.currentFrame)
   const selectedElement = stage.elements.find((element) => element.id === selectedElementId)
   const isEditing = mode === 'editing'
   const dimensions = compositionDimensions[stage.canvasAspectRatio]
+  const previewTransform = calculateContainTransform(dimensions, previewSize)
   const compositionProject = useMemo(
     () => buildCompositionProject(stage, timeline, actions, fps, playback.totalFrames),
     [actions, fps, playback.totalFrames, stage, timeline],
@@ -230,7 +244,7 @@ export function CoursePreviewStage({
   const foregroundIsVisible =
     playback.currentFrame < Math.min(stage.foregroundSource.durationFrames, playback.totalFrames)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const player = playerRef.current
 
     if (!player) {
@@ -258,6 +272,36 @@ export function CoursePreviewStage({
       player.removeEventListener('pause', onPause)
     }
   }, [dispatch, playback.totalFrames])
+
+  useLayoutEffect(() => {
+    const mediaFrame = previewMediaFrameRef.current
+
+    if (!mediaFrame) {
+      return
+    }
+
+    const measure = () => {
+      const rect = mediaFrame.getBoundingClientRect()
+
+      if (rect.width > 0 && rect.height > 0) {
+        setPreviewSize((current) =>
+          current.width === rect.width && current.height === rect.height
+            ? current
+            : { width: rect.width, height: rect.height },
+        )
+      }
+    }
+
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(mediaFrame)
+    window.addEventListener('resize', measure)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [dimensions.height, dimensions.width])
 
   useEffect(() => {
     const player = playerRef.current
@@ -341,32 +385,21 @@ export function CoursePreviewStage({
       return null
     }
 
-    const actionStyle = {
+    const selectionStyle = {
       ...resolved.style,
       opacity: entry.phase === 'enter' ? 0.72 : entry.phase === 'exit' ? 0.58 : 1,
     }
 
     return (
       <div
-        className={`preview-action preview-action--${entry.action.category} preview-editor-action editor-only`}
+        className="action-selection-box editor-only"
         data-action-ref-id={entry.ref.id}
         data-animation-phase={entry.phase}
         data-editor-only="true"
-        data-testid="preview-action"
+        data-testid={`action-selection-${entry.ref.id}`}
         key={entry.ref.id}
-        onPointerDown={(event) => {
-          event.stopPropagation()
-          setDragState({
-            kind: 'action-move',
-            startX: event.clientX,
-            startY: event.clientY,
-            originX: entry.action.params.x ?? 16,
-            originY: entry.action.params.y ?? 28,
-          })
-        }}
-        style={actionStyle}
+        style={selectionStyle}
       >
-        {renderActionPreview(entry.action, previewText(entry.action))}
         <button
           aria-label="移动动作标注"
           className="action-move-handle editor-only"
@@ -502,6 +535,7 @@ export function CoursePreviewStage({
           className="preview-media-frame"
           data-testid="preview-media-frame"
           data-source-aspect-ratio={stage.backgroundSource.sourceAspectRatio}
+          ref={previewMediaFrameRef}
         >
           <div className="preview-player-shell" data-testid="course-remotion-player">
             <Player
@@ -513,13 +547,18 @@ export function CoursePreviewStage({
               durationInFrames={playback.totalFrames}
               fps={fps}
               initialFrame={playback.currentFrame}
-              inputProps={{ project: compositionProject, aspectRatio: stage.canvasAspectRatio }}
+              inputProps={{ project: compositionProject, aspectRatio: stage.canvasAspectRatio, interactive: true }}
               ref={playerRef}
               style={{ width: '100%', height: '100%' }}
             />
           </div>
           {isEditing ? (
-            <div className="preview-editor-overlay editor-only" data-editor-only="true">
+            <div
+              className="preview-editor-canvas editor-only"
+              data-editor-only="true"
+              data-testid="preview-editor-canvas"
+              style={editorCanvasStyle(dimensions, previewTransform)}
+            >
               {stage.elements.filter((element) => elementIsVisible(element, playback.currentFrame)).map((element) => (
                 <button
                   className="stage-element-box editor-only"
@@ -527,12 +566,15 @@ export function CoursePreviewStage({
                   type="button"
                   aria-pressed={element.id === selectedElementId}
                   data-editor-only="true"
-                  style={{
-                    left: `${element.box.x}%`,
-                    top: `${element.box.y}%`,
-                    width: `${element.box.width}%`,
-                    height: `${element.box.height}%`,
-                  }}
+                  style={(() => {
+                    const box = element.boxesByAspect?.[stage.canvasAspectRatio] ?? element.box
+                    return {
+                      left: `${box.x}%`,
+                      top: `${box.y}%`,
+                      width: `${box.width}%`,
+                      height: `${box.height}%`,
+                    }
+                  })()}
                   onClick={(event) => {
                     event.stopPropagation()
                     dispatch({ type: 'select-stage-element', id: element.id })

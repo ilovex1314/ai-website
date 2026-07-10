@@ -173,6 +173,53 @@ export type StageElement = {
   label: string
   frameRange: [number, number]
   box: { x: number; y: number; width: number; height: number }
+  boxesByAspect?: Partial<Record<CanvasAspectRatio, { x: number; y: number; width: number; height: number }>>
+}
+
+export type HyperframesImportPayload = {
+  project: {
+    id: string
+    title: string
+    fps: number
+    durationFrames: number
+    activeAspectRatio: CanvasAspectRatio
+    source: {
+      background: {
+        id: string
+        projectPath: string
+        entryHtml: string
+        assetsDir: string
+        sourceAspectRatio: CanvasAspectRatio
+        durationFrames?: number
+        mediaUrl?: string
+      }
+    }
+  }
+  sourceDimensions: { width: number; height: number }
+  sceneMap: Record<string, {
+    id: string
+    fromFrame: number
+    durationFrames: number
+  }>
+  elementMap: Record<string, {
+    id: string
+    sceneId: string
+    role: string
+    selector: string
+    text: string
+    visibility: { fromFrame: number; toFrame: number }
+    rectsByAspect: Partial<Record<CanvasAspectRatio, { x: number; y: number; width: number; height: number }>>
+  }>
+  bakedAnimationMap: Record<string, {
+    id: string
+    sceneId: string
+    elementId: string
+    fromFrame: number
+    durationFrames: number
+    kind: string
+    properties: string[]
+    exportRole: 'baked-internal'
+  }>
 }
 
 export type DetectedHyperframesAnimation = {
@@ -272,6 +319,16 @@ export type CourseWorkbenchState = {
 }
 
 export type CourseWorkbenchAction =
+  | { type: 'hydrate-hyperframes-import'; payload: HyperframesImportPayload }
+  | {
+      type: 'hydrate-foreground-upload'
+      payload: {
+        name: string
+        relativePath: string
+        mediaUrl: string
+        durationFrames: number
+      }
+    }
   | { type: 'select-segment'; id: string }
   | { type: 'select-action'; id: string }
   | { type: 'set-aspect-ratio'; aspectRatio: CanvasAspectRatio }
@@ -279,7 +336,13 @@ export type CourseWorkbenchAction =
   | { type: 'set-playing'; isPlaying: boolean }
   | { type: 'select-stage-element'; id: string }
   | { type: 'select-action-ref'; id: string }
-  | { type: 'bind-selected-action-to-element'; from?: number; duration?: number }
+  | {
+      type: 'bind-selected-action-to-element'
+      from?: number
+      duration?: number
+      fadeInFrames?: number
+      fadeOutFrames?: number
+    }
   | {
       type: 'update-selected-action-ref'
       patch: Partial<Pick<AnimationActionRef, 'actionId' | 'from' | 'duration' | 'fadeInFrames' | 'fadeOutFrames'>>

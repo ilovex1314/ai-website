@@ -80,7 +80,7 @@ function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
 }
 
-async function readMetadata(root: string): Promise<{ id?: string; name?: string }> {
+async function readMetadata(root: string): Promise<{ id?: string; name?: string; renderedPreview?: string }> {
   const path = await resolveSourceChild(root, 'meta.json', true)
 
   if (!existsSync(path)) {
@@ -88,7 +88,7 @@ async function readMetadata(root: string): Promise<{ id?: string; name?: string 
   }
 
   try {
-    return JSON.parse(await readFile(path, 'utf8')) as { id?: string; name?: string }
+    return JSON.parse(await readFile(path, 'utf8')) as { id?: string; name?: string; renderedPreview?: string }
   } catch {
     return {}
   }
@@ -169,7 +169,14 @@ async function collectFingerprints(root: string, mediaPath?: string): Promise<Re
   return fingerprints
 }
 
-async function findBackgroundMedia(root: string, id: string): Promise<string | undefined> {
+async function findBackgroundMedia(root: string, id: string, renderedPreview?: string): Promise<string | undefined> {
+  if (renderedPreview) {
+    const declared = await resolveSourceChild(root, renderedPreview, true)
+    if (existsSync(declared) && declared.toLowerCase().endsWith('.mp4')) {
+      return declared
+    }
+  }
+
   const renders = await resolveSourceChild(root, 'renders', true)
 
   if (!existsSync(renders)) {
@@ -323,16 +330,36 @@ export async function importHyperframesProject(
     aspects,
     projectDirectory,
   )
-  const mediaPath = await findBackgroundMedia(root, id)
+  const mediaPath = await findBackgroundMedia(root, id, metadata.renderedPreview)
   const backgroundMedia = mediaPath === undefined
     ? undefined
     : { relativePath: relative(root, mediaPath), metadata: await probeMedia(mediaPath) }
-  const bakedMap = bakedAnimationMap(contract.manifest)
+  const durationFrames = backgroundMedia?.metadata.durationFrames ?? contract.manifest.durationInFrames
+  const backgroundMediaUrl = mediaPath === undefined ? undefined : `/@fs${mediaPath}`
+  const declaredBakedMap = bakedAnimationMap(contract.manifest)
+  const bakedMap = Object.keys(declaredBakedMap).length > 0
+    ? declaredBakedMap
+    : Object.fromEntries(
+        Object.values(runtime.elementMap).map((element) => {
+          const animation: BakedAnimationMetadata = {
+            id: `runtime-${element.id}`,
+            sceneId: element.sceneId,
+            elementId: element.id,
+            fromFrame: element.visibility.fromFrame,
+            durationFrames: Math.max(1, element.visibility.toFrame - element.visibility.fromFrame),
+            kind: 'runtime-entrance',
+            properties: ['opacity', 'transform'],
+            exportRole: 'baked-internal',
+          }
+          return [animation.id, animation]
+        }),
+      )
   const project: CourseProjectV2 = {
     version: 2,
     id,
     title: metadata.name?.trim() || id,
     fps: contract.manifest.fps,
+    durationFrames,
     activeAspectRatio: aspectFromDimensions(runtime.sourceDimensions.width, runtime.sourceDimensions.height),
     source: {
       background: {
@@ -341,6 +368,8 @@ export async function importHyperframesProject(
         entryHtml: 'index.html',
         assetsDir: 'assets',
         sourceAspectRatio: aspectFromDimensions(runtime.sourceDimensions.width, runtime.sourceDimensions.height),
+        durationFrames,
+        ...(backgroundMediaUrl ? { mediaUrl: backgroundMediaUrl } : {}),
       },
       bakedAnimations: Object.values(bakedMap).map((animation) => ({
         id: animation.id,

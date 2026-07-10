@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { OffthreadVideo, Sequence, useCurrentFrame } from 'remotion'
+import { OffthreadVideo, Sequence, useCurrentFrame, Video } from 'remotion'
 
 export type ForegroundWindow = {
   x: number
@@ -18,6 +18,7 @@ export type ForegroundMedia = {
 
 type ForegroundLayerProps = {
   foreground?: ForegroundMedia
+  interactive?: boolean
   projectDurationFrames: number
 }
 
@@ -31,7 +32,7 @@ export function resolveForegroundWindowStyle(window: ForegroundWindow): CSSPrope
   }
 }
 
-export function ForegroundLayer({ foreground, projectDurationFrames }: ForegroundLayerProps) {
+export function ForegroundLayer({ foreground, interactive = false, projectDurationFrames }: ForegroundLayerProps) {
   const frame = useCurrentFrame()
 
   if (!foreground) {
@@ -52,13 +53,23 @@ export function ForegroundLayer({ foreground, projectDurationFrames }: Foregroun
         data-testid="foreground-window"
         style={resolveForegroundWindowStyle(foreground.window)}
       >
-        <OffthreadVideo
-          className="preview-speaker__video"
-          data-testid="foreground-video"
-          muted={false}
-          src={foreground.mediaUrl}
-          volume={1}
-        />
+        {interactive ? (
+          <Video
+            className="preview-speaker__video"
+            data-testid="foreground-video"
+            muted={false}
+            src={foreground.mediaUrl}
+            volume={1}
+          />
+        ) : (
+          <OffthreadVideo
+            className="preview-speaker__video"
+            data-testid="foreground-video"
+            muted={false}
+            src={foreground.mediaUrl}
+            volume={1}
+          />
+        )}
       </div>
     </Sequence>
   )

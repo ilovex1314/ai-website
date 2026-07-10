@@ -72,6 +72,7 @@ function createValidProject(sourceProject: string, title = 'Codex Keyframes Tuto
     id: 'codex-keyframes-tutorial',
     title,
     fps: 30,
+    durationFrames: 600,
     activeAspectRatio: '9:16',
     source: {
       background: {
@@ -423,6 +424,18 @@ describe('workbench server', () => {
       await expect(readFile(join(projectRoot, project.id, 'sources', 'media-manifest.json'), 'utf8')).resolves.toContain(
         '"hasAudio": true',
       )
+      const savedProjectResponse = await fetch(`${baseUrl}/api/projects/${project.id}`)
+      await expect(savedProjectResponse.json()).resolves.toMatchObject({
+        durationFrames: 600,
+        source: {
+          foreground: {
+            id: 'foreground-speaker',
+            mediaUrl: expect.stringContaining('/@fs/'),
+            audioPolicy: 'primary',
+            durationFrames: expect.any(Number),
+          },
+        },
+      })
 
       const rejectedResponse = await fetch(`${baseUrl}/api/projects/${project.id}/foreground`, {
         method: 'POST',

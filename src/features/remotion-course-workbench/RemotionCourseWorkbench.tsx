@@ -1,4 +1,4 @@
-import { useMemo, useReducer } from 'react'
+import { useMemo, useReducer, useState } from 'react'
 import { CodexHandoffPanel } from './CodexHandoffPanel'
 import { CourseActionEditor } from './CourseActionEditor'
 import { CourseAnimationLibraryPanel } from './CourseAnimationLibraryPanel'
@@ -30,6 +30,13 @@ function bindingFrameRange(ref: AnimationActionRef) {
 
 export function RemotionCourseWorkbench() {
   const [state, dispatch] = useReducer(courseWorkbenchReducer, undefined, createDefaultCourseWorkbenchState)
+  const [bindingDraft, setBindingDraft] = useState<{
+    elementId?: string
+    from?: number
+    duration?: number
+    fadeInFrames?: number
+    fadeOutFrames?: number
+  }>({})
   const selectedAction = useMemo(
     () => state.actions.find((action) => action.id === state.selectedActionId) ?? state.actions[0],
     [state.actions, state.selectedActionId],
@@ -66,6 +73,9 @@ export function RemotionCourseWorkbench() {
     [selectedAction, selectedActionRefEntry?.ref.actionId, state.actions],
   )
   const selectedRefLabel = actionParamLabel(selectedRefAction)
+  const elementBindingDraft = bindingDraft.elementId === selectedElement?.id ? bindingDraft : {}
+  const defaultBindingFrom = Math.max(state.playback.currentFrame - selectedSegment.from, 0)
+  const defaultBindingDuration = selectedAction.defaultDurationFrames
   const latestRequest = state.handoffRequests[0]
   const assemblyManifest = useMemo(() => buildCourseAssemblyManifest(state), [state])
   const capcutPackage = useMemo(() => buildCapCutHandoffPackage(state), [state])
@@ -106,6 +116,16 @@ export function RemotionCourseWorkbench() {
               animations: state.stage.backgroundSource.structureStatus.animationsDetected,
               missingActions: state.stage.backgroundSource.structureStatus.missingActionsCreated,
             }}
+            onReady={(result) => dispatch({ type: 'hydrate-hyperframes-import', payload: result })}
+            onForegroundReady={(result, file) => dispatch({
+              type: 'hydrate-foreground-upload',
+              payload: {
+                name: file.name,
+                relativePath: result.foreground.relativePath,
+                mediaUrl: result.source.mediaUrl,
+                durationFrames: result.source.durationFrames,
+              },
+            })}
           />
           <CourseTimelinePanel
             timeline={state.timeline}
@@ -210,13 +230,15 @@ export function RemotionCourseWorkbench() {
                       绑定起点
                       <input
                         type="number"
-                        value={selectedActionRefEntry?.ref.from ?? 0}
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'update-selected-action-ref',
-                            patch: { from: Number(event.target.value) },
-                          })
-                        }
+                        value={selectedActionRefEntry?.ref.from ?? elementBindingDraft.from ?? defaultBindingFrom}
+                        onChange={(event) => {
+                          const from = Number(event.target.value)
+                          if (selectedActionRefEntry?.ref.id) {
+                            dispatch({ type: 'update-selected-action-ref', patch: { from } })
+                          } else {
+                            setBindingDraft((current) => ({ ...current, elementId: selectedElement?.id, from }))
+                          }
+                        }}
                       />
                     </label>
                     <label>
@@ -225,42 +247,47 @@ export function RemotionCourseWorkbench() {
                         type="number"
                         value={
                           selectedActionRefEntry?.ref.duration
-                          ?? state.actions.find((action) => action.id === state.selectedActionId)
-                            ?.defaultDurationFrames
-                          ?? 90
+                          ?? elementBindingDraft.duration
+                          ?? defaultBindingDuration
                         }
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'update-selected-action-ref',
-                            patch: { duration: Number(event.target.value) },
-                          })
-                        }
+                        onChange={(event) => {
+                          const duration = Number(event.target.value)
+                          if (selectedActionRefEntry?.ref.id) {
+                            dispatch({ type: 'update-selected-action-ref', patch: { duration } })
+                          } else {
+                            setBindingDraft((current) => ({ ...current, elementId: selectedElement?.id, duration }))
+                          }
+                        }}
                       />
                     </label>
                     <label>
                       淡入帧
                       <input
                         type="number"
-                        value={selectedActionRefEntry?.ref.fadeInFrames ?? 0}
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'update-selected-action-ref',
-                            patch: { fadeInFrames: Number(event.target.value) },
-                          })
-                        }
+                        value={selectedActionRefEntry?.ref.fadeInFrames ?? elementBindingDraft.fadeInFrames ?? 0}
+                        onChange={(event) => {
+                          const fadeInFrames = Number(event.target.value)
+                          if (selectedActionRefEntry?.ref.id) {
+                            dispatch({ type: 'update-selected-action-ref', patch: { fadeInFrames } })
+                          } else {
+                            setBindingDraft((current) => ({ ...current, elementId: selectedElement?.id, fadeInFrames }))
+                          }
+                        }}
                       />
                     </label>
                     <label>
                       淡出帧
                       <input
                         type="number"
-                        value={selectedActionRefEntry?.ref.fadeOutFrames ?? 0}
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'update-selected-action-ref',
-                            patch: { fadeOutFrames: Number(event.target.value) },
-                          })
-                        }
+                        value={selectedActionRefEntry?.ref.fadeOutFrames ?? elementBindingDraft.fadeOutFrames ?? 0}
+                        onChange={(event) => {
+                          const fadeOutFrames = Number(event.target.value)
+                          if (selectedActionRefEntry?.ref.id) {
+                            dispatch({ type: 'update-selected-action-ref', patch: { fadeOutFrames } })
+                          } else {
+                            setBindingDraft((current) => ({ ...current, elementId: selectedElement?.id, fadeOutFrames }))
+                          }
+                        }}
                       />
                     </label>
                     <label>
@@ -296,7 +323,13 @@ export function RemotionCourseWorkbench() {
                     <button
                       className="course-button course-button--primary"
                       type="button"
-                      onClick={() => dispatch({ type: 'bind-selected-action-to-element' })}
+                      onClick={() => dispatch({
+                        type: 'bind-selected-action-to-element',
+                        from: elementBindingDraft.from ?? defaultBindingFrom,
+                        duration: elementBindingDraft.duration ?? defaultBindingDuration,
+                        fadeInFrames: elementBindingDraft.fadeInFrames ?? 0,
+                        fadeOutFrames: elementBindingDraft.fadeOutFrames ?? 0,
+                      })}
                     >
                       绑定动作到元素
                     </button>

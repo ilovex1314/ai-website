@@ -32,6 +32,24 @@ export const layoutVariantSchema = z.object({
   '9:16': layoutOverrideSchema.optional(),
 })
 
+export const DEFAULT_FOREGROUND_WINDOW = {
+  x: 65,
+  y: 55,
+  width: 20,
+  height: 18,
+  shape: 'rounded',
+  opacity: 1,
+} as const
+
+const foregroundWindowSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  shape: z.enum(['rounded', 'circle', 'portrait', 'rect']),
+  opacity: z.number().min(0).max(1),
+})
+
 const actionParamsSchema = z.record(z.string(), z.unknown())
 
 const actionPresetSchema = z.object({
@@ -70,6 +88,8 @@ export const actionInstanceSchema = z.object({
   templateId: z.string().min(1),
   fromFrame: z.number().int().nonnegative(),
   durationFrames: z.number().int().positive(),
+  fadeInFrames: z.number().int().nonnegative().default(0),
+  fadeOutFrames: z.number().int().nonnegative().default(0),
   exportRole: z.literal('platform-overlay', {
     error: (issue) => `${String(issue.input)} action instances must use platform-overlay`,
   }),
@@ -91,6 +111,7 @@ const courseProjectSchema = z
     id: z.string().min(1),
     title: z.string().min(1),
     fps: z.number().int().positive(),
+    durationFrames: z.number().int().positive().default(1),
     activeAspectRatio: aspectRatioSchema,
     source: z.object({
       background: z.object({
@@ -99,7 +120,16 @@ const courseProjectSchema = z
         entryHtml: z.string().min(1),
         assetsDir: z.string().min(1),
         sourceAspectRatio: aspectRatioSchema,
+        mediaUrl: z.string().min(1).optional(),
+        durationFrames: z.number().int().positive().optional(),
       }),
+      foreground: z.object({
+        id: z.string().min(1),
+        mediaUrl: z.string().min(1),
+        durationFrames: z.number().int().positive(),
+        audioPolicy: z.literal('primary'),
+        window: foregroundWindowSchema.default(DEFAULT_FOREGROUND_WINDOW),
+      }).optional(),
       bakedAnimations: z.array(bakedAnimationSchema).default([]),
     }),
     actionTemplates: z.array(actionTemplateSchema),
@@ -130,6 +160,7 @@ export type ActionTemplate = z.infer<typeof actionTemplateSchema>
 export type LayoutOverride = z.infer<typeof layoutOverrideSchema>
 export type LayoutVariant = z.infer<typeof layoutVariantSchema>
 export type ActionInstance = z.infer<typeof actionInstanceSchema>
+export type ForegroundWindow = z.infer<typeof foregroundWindowSchema>
 export type CourseProjectV2 = Omit<z.infer<typeof courseProjectSchema>, 'actionInstances'> & {
   actionInstances: ActionInstance[]
 }

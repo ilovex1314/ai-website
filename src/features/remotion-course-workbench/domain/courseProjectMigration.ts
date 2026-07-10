@@ -58,6 +58,10 @@ function cloneParams(value: unknown): Record<string, unknown> {
   return structuredClone(value as Record<string, unknown>)
 }
 
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
 function isBakedLegacyRef(ref: UnknownRecord): boolean {
   return (
     ref.exportRole === 'background-only' ||
@@ -72,6 +76,10 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
   const legacyProject = asRecord(state.project, 'project')
   const legacyStage = asRecord(state.stage, 'stage')
   const legacyBackground = asRecord(legacyStage.backgroundSource, 'stage.backgroundSource')
+  const legacyForeground = typeof legacyStage.foregroundSource === 'object' && legacyStage.foregroundSource !== null
+    ? asRecord(legacyStage.foregroundSource, 'stage.foregroundSource')
+    : undefined
+  const legacyTimeline = asArray(state.timeline, 'timeline')
   const legacyActions = asArray(state.actions, 'actions').map((action, index) => {
     const legacyAction = asRecord(action, `actions[${index}]`)
 
@@ -98,7 +106,7 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
   const actionInstances: UnknownRecord[] = []
   const bakedAnimations: UnknownRecord[] = []
 
-  asArray(state.timeline, 'timeline').forEach((segment, segmentIndex) => {
+  legacyTimeline.forEach((segment, segmentIndex) => {
     const legacySegment = asRecord(segment, `timeline[${segmentIndex}]`)
     const segmentId = asString(legacySegment.id, `timeline[${segmentIndex}].id`)
     const segmentFrom = asNonnegativeInteger(legacySegment.from, `timeline[${segmentIndex}].from`)
@@ -131,6 +139,8 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
         templateId: asString(legacyRef.actionId, `${id}.actionId`),
         fromFrame,
         durationFrames,
+        fadeInFrames: typeof legacyRef.fadeInFrames === 'number' ? legacyRef.fadeInFrames : 0,
+        fadeOutFrames: typeof legacyRef.fadeOutFrames === 'number' ? legacyRef.fadeOutFrames : 0,
         exportRole: 'platform-overlay',
         params: cloneParams(legacyRef.params),
         layoutByAspect: {},
@@ -138,11 +148,39 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
     })
   })
 
+  const playback = typeof state.playback === 'object' && state.playback !== null
+    ? asRecord(state.playback, 'playback')
+    : undefined
+  const durationFrames =
+    typeof playback?.totalFrames === 'number' && Number.isInteger(playback.totalFrames) && playback.totalFrames > 0
+      ? playback.totalFrames
+      : Math.max(
+          1,
+          ...[...actionInstances, ...bakedAnimations].map((entry) =>
+            Number(entry.fromFrame) + Number(entry.durationFrames),
+          ),
+        )
+  const backgroundMediaUrl = stringOrUndefined(legacyBackground.localPreviewUrl)
+  const foregroundMediaUrl = stringOrUndefined(legacyForeground?.localPreviewUrl)
+  const foreground = legacyForeground && foregroundMediaUrl
+    ? {
+        id: asString(legacyForeground.id, 'stage.foregroundSource.id'),
+        mediaUrl: foregroundMediaUrl,
+        durationFrames: asPositiveInteger(
+          legacyForeground.durationFrames,
+          'stage.foregroundSource.durationFrames',
+        ),
+        audioPolicy: 'primary',
+        window: legacyStage.foregroundWindow,
+      }
+    : undefined
+
   return parseCourseProject({
     version: 2,
     id: asString(legacyProject.id, 'project.id'),
     title: asString(legacyProject.title, 'project.title'),
     fps: asPositiveInteger(legacyProject.fps, 'project.fps'),
+    durationFrames,
     activeAspectRatio: asAspectRatio(legacyProject.aspectRatio, 'project.aspectRatio'),
     source: {
       background: {
@@ -154,7 +192,9 @@ export function migrateLegacyWorkbenchState(value: unknown): CourseProjectV2 {
           legacyBackground.sourceAspectRatio,
           'stage.backgroundSource.sourceAspectRatio',
         ),
+        ...(backgroundMediaUrl ? { mediaUrl: backgroundMediaUrl } : {}),
       },
+      ...(foreground ? { foreground } : {}),
       bakedAnimations,
     },
     actionTemplates: legacyActions,

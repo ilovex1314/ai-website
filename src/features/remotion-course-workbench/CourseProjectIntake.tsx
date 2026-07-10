@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import type { HyperframesImportPayload } from './workbenchTypes'
 
 type MigrationSummary = {
   recognized: number
@@ -22,8 +23,12 @@ export type CourseProjectIntakeResult =
     }
   | {
       status: 'ready'
-      project: { id: string }
+      project: HyperframesImportPayload['project']
       migrationReport: MigrationReport
+      sourceDimensions: HyperframesImportPayload['sourceDimensions']
+      sceneMap: HyperframesImportPayload['sceneMap']
+      elementMap: HyperframesImportPayload['elementMap']
+      bakedAnimationMap: HyperframesImportPayload['bakedAnimationMap']
     }
 
 type ForegroundUploadResult = {
@@ -33,6 +38,10 @@ type ForegroundUploadResult = {
       durationSeconds: number
       hasAudio: boolean
     }
+  }
+  source: {
+    mediaUrl: string
+    durationFrames: number
   }
 }
 
@@ -57,6 +66,8 @@ type CourseProjectIntakeProps = {
   backgroundAudioPolicy?: string
   foregroundAudioPolicy?: string
   api?: CourseProjectIntakeApi
+  onReady?: (result: Extract<CourseProjectIntakeResult, { status: 'ready' }>) => void
+  onForegroundReady?: (result: ForegroundUploadResult, file: File) => void
 }
 
 type IntakeError = {
@@ -143,6 +154,8 @@ export function CourseProjectIntake({
   backgroundAudioPolicy = 'muted',
   foregroundAudioPolicy = 'primary',
   api = defaultApi,
+  onReady,
+  onForegroundReady,
 }: CourseProjectIntakeProps) {
   const [state, setState] = useState<IntakeState>('idle')
   const [summary, setSummary] = useState<MigrationSummary>({
@@ -178,6 +191,7 @@ export function CourseProjectIntake({
       }
 
       setProjectId(result.project.id)
+      onReady?.(result)
       setState('ready')
     } catch (nextError) {
       setError(intakeError(nextError))
@@ -193,7 +207,8 @@ export function CourseProjectIntake({
     setUploadStatus('正在上传口播视频')
 
     try {
-      await api.uploadForeground(projectId, file)
+      const result = await api.uploadForeground(projectId, file)
+      onForegroundReady?.(result, file)
       setUploadStatus('口播视频已上传')
     } catch (nextError) {
       setError(intakeError(nextError))

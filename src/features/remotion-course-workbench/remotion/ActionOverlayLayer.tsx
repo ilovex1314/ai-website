@@ -212,7 +212,7 @@ export function ActionOverlayLayer({ project, aspectRatio }: ActionOverlayLayerP
             data-layout-anchor={action.anchorKind}
             data-testid={`action-overlay-${instance.id}`}
             key={instance.id}
-            style={action.style}
+            style={{ ...action.style, animation: 'none', transition: 'none' }}
           >
             {actionBody(action)}
           </div>
