@@ -25,6 +25,18 @@ cd ai-website
 - 动作库：<http://127.0.0.1:5173/topics/remotion-course/actions>
 - Workbench Service：<http://127.0.0.1:4319>
 
+如果导入的旧 HyperFrames 项目没有 `element-map.json`，平台会启动 Playwright 进行运行时元素采样。首次使用该兜底能力前执行：
+
+```bash
+npx playwright install chromium
+```
+
+在 Linux CI 或全新 Linux 主机上，可同时安装系统依赖：
+
+```bash
+npx playwright install --with-deps chromium
+```
+
 以后再次使用只需要：
 
 ```bash
