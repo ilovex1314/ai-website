@@ -98,10 +98,14 @@ assembly manifest 和后续成片/剪映交付结构说明，不注册成全局 
 ## 常用命令
 
 ```bash
+npm run start:course
 npm run dev
 npm test
 npm run build
 npm run lint
 ```
+
+Fork 仓库的首次安装、快捷启动、环境变量和故障排查见
+[`docs/remotion-course-local-setup.md`](docs/remotion-course-local-setup.md)。
 
 topic-by-topic 的实现计划见 `docs/demo-plan.md`。

@@ -14,6 +14,7 @@
 
 ## Current Sources
 
+- [Fork 后本地运行指南](../../remotion-course-local-setup.md)
 - [全局计划](../../remotion-course-global-plan.md)
 - [工作流设计](../../remotion-course-workflow-design.md)
 - [动作库管理设计](../../remotion-course-animation-library-management.md)

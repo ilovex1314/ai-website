@@ -8,6 +8,7 @@
     "dev:web": "vite",
     "dev:workbench": "tsx watch server/course-workbench/start.ts",
     "dev:course": "node scripts/run-course-workbench.mjs",
+    "start:course": "bash ./start-course-workbench.sh",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
