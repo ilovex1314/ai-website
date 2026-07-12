@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import { probeMedia } from '../mediaProbe.js'
@@ -11,7 +11,13 @@ import { parseHyperframesHtml } from './contract.js'
 import { importHyperframesProject } from './importer.js'
 
 const execFileAsync = promisify(execFile)
+const repositoryRoot = resolve(import.meta.dirname, '../../..')
 const realFixture = '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial'
+const manifestCaseFixture = join(repositoryRoot, 'videos/remotion-course-workbench-manifest-case')
+const manifestCaseRender = join(
+  manifestCaseFixture,
+  'renders/remotion-course-workbench-manifest-case.mp4',
+)
 const temporaryPaths: string[] = []
 
 async function temporaryDirectory(prefix: string): Promise<string> {
@@ -165,14 +171,13 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
 })
 
 describe('baked animation ownership', () => {
-  it('can declare the rendered teaching video as the temporary foreground source', async () => {
-    const fixture = '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case'
+  it.skipIf(!existsSync(manifestCaseRender))('can declare the rendered teaching video as the temporary foreground source', async () => {
     const projectRoot = await temporaryDirectory('course-workbench-manifest-case-projects-')
 
     const imported = await importHyperframesProject({
-      sourcePath: fixture,
+      sourcePath: manifestCaseFixture,
       projectRoot,
-      allowedSourceRoots: ['/Users/happyboy/Documents/ai-website/videos'],
+      allowedSourceRoots: [join(repositoryRoot, 'videos')],
       aspects: ['9:16'],
     })
 
