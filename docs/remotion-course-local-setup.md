@@ -7,9 +7,30 @@
 - Git
 - Node.js `^20.19.0` 或 `>=22.12.0`
 - npm
+- FFmpeg（命令行中可直接使用 `ffmpeg` 和 `ffprobe`）
 - macOS、Linux 或 Windows
 - 执行 Remotion 视频导出时，需要系统具备可用的 Chromium/Remotion 渲染环境
 - 使用本地 Codex 协作能力时，需要单独安装并登录 Codex CLI；基础管理台和 mock 流程不依赖 API Key
+
+macOS 可使用 Homebrew 安装 FFmpeg：
+
+```bash
+brew install ffmpeg
+```
+
+Ubuntu/Debian 可使用 apt 安装：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ffmpeg
+```
+
+安装后确认两个命令都可用：
+
+```bash
+ffmpeg -version
+ffprobe -version
+```
 
 ## Fork 后首次启动
 

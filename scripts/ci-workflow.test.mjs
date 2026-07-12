@@ -5,12 +5,15 @@ import { describe, expect, it } from 'vitest'
 const workflowPath = resolve(import.meta.dirname, '../.github/workflows/deploy-pages.yml')
 
 describe('Cloudflare deployment workflow', () => {
-  it('installs Playwright Chromium before running runtime inspection tests', async () => {
+  it('installs browser and media runtime dependencies before tests', async () => {
     const workflow = await readFile(workflowPath, 'utf8')
-    const installIndex = workflow.indexOf('npx playwright install --with-deps chromium')
+    const playwrightInstallIndex = workflow.indexOf('npx playwright install --with-deps chromium')
+    const ffmpegInstallIndex = workflow.indexOf('sudo apt-get install -y ffmpeg')
     const testIndex = workflow.indexOf('npm test')
 
-    expect(installIndex).toBeGreaterThan(-1)
-    expect(testIndex).toBeGreaterThan(installIndex)
+    expect(playwrightInstallIndex).toBeGreaterThan(-1)
+    expect(ffmpegInstallIndex).toBeGreaterThan(-1)
+    expect(testIndex).toBeGreaterThan(playwrightInstallIndex)
+    expect(testIndex).toBeGreaterThan(ffmpegInstallIndex)
   })
 })
