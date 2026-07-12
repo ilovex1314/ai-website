@@ -1,4 +1,4 @@
-import { AbsoluteFill, OffthreadVideo, Sequence, Video } from 'remotion'
+import { AbsoluteFill, OffthreadVideo, Sequence } from 'remotion'
 import type { CourseProjectV2 } from '../domain/courseProjectSchema'
 import type { CanvasAspectRatio } from '../workbenchTypes'
 import { ActionOverlayLayer } from './ActionOverlayLayer'
@@ -97,15 +97,7 @@ export function CourseComposition({ project, aspectRatio, interactive = false }:
     >
       <Sequence durationInFrames={durationInFrames} premountFor={project.fps}>
         {backgroundMediaUrl ? (
-          interactive ? (
-            <Video
-              className="course-composition__background preview-background-video"
-              data-testid="background-video"
-              muted
-              src={backgroundMediaUrl}
-              volume={0}
-            />
-          ) : (
+          interactive ? null : (
             <OffthreadVideo
               className="course-composition__background preview-background-video"
               data-testid="background-video"
@@ -120,11 +112,12 @@ export function CourseComposition({ project, aspectRatio, interactive = false }:
           </AbsoluteFill>
         )}
       </Sequence>
-      <ForegroundLayer
-        foreground={foreground}
-        interactive={interactive}
-        projectDurationFrames={durationInFrames}
-      />
+      {interactive ? null : (
+        <ForegroundLayer
+          foreground={foreground}
+          projectDurationFrames={durationInFrames}
+        />
+      )}
       <ActionOverlayLayer aspectRatio={aspectRatio} project={project} />
     </AbsoluteFill>
   )

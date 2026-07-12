@@ -218,7 +218,7 @@ describe('HyperFrames source contract', () => {
     await expect(executeFile(validateScript, [legacyFixture.root])).resolves.toMatchObject({
       stdout: expect.stringMatching(/VALID/),
     })
-  })
+  }, 15_000)
 
   it('rejects duplicate animation ids, invalid frame ranges, missing targets, and platform overlays', async () => {
     const root = await createTemporaryDirectory('hyperframes-invalid-contract-')

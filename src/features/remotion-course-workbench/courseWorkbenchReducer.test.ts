@@ -14,27 +14,27 @@ describe('courseWorkbenchReducer', () => {
 
     expect(state.stage.backgroundSource.sourceKind).toBe('hyperframes-project')
     expect(state.stage.backgroundSource.name).toContain('HyperFrames')
-    expect(state.stage.backgroundSource.projectPath).toContain('codex-keyframes-tutorial')
-    expect(state.stage.backgroundSource.renderedPreview).toContain('codex-keyframes-tutorial.mp4')
+    expect(state.stage.backgroundSource.projectPath).toContain('remotion-course-workbench-manifest-case')
+    expect(state.stage.backgroundSource.renderedPreview).toContain('remotion-course-workbench-manifest-case.mp4')
     expect(state.stage.backgroundSource.audioPolicy).toBe('muted')
     expect(state.stage.foregroundSource.audioPolicy).toBe('primary')
-    expect(state.stage.foregroundSource.name).toContain('codex-keyframes-tutorial.mp4')
+    expect(state.stage.foregroundSource.name).toContain('remotion-course-workbench-manifest-case.mp4')
   })
 
-  it('loads the Codex Keyframes Tutorial preset as a vertical 158 second assembly case', () => {
+  it('loads the manifest-first teaching preset as a vertical 110 second assembly case', () => {
     const state = createDefaultCourseWorkbenchState()
 
-    expect(state.project.title).toBe('Codex Keyframes Tutorial')
+    expect(state.project.title).toBe('口播课程动画制作台教学案例')
     expect(state.project.aspectRatio).toBe('9:16')
     expect(state.stage.canvasAspectRatio).toBe('9:16')
-    expect(state.playback.totalFrames).toBe(4740)
+    expect(state.playback.totalFrames).toBe(3300)
     expect(state.stage.backgroundSource.projectPath).toBe(
-      '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial',
+      '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case',
     )
     expect(state.stage.backgroundSource.entryHtml).toContain('index.html')
     expect(state.stage.backgroundSource.designFile).toContain('DESIGN.md')
     expect(state.stage.backgroundSource.renderedPreview).toBe(
-      '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
+      '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/renders/remotion-course-workbench-manifest-case.mp4',
     )
     expect(state.stage.backgroundSource.sourceAspectRatio).toBe('9:16')
     expect(state.stage.elements.find((element) => element.id === 'element-video-title')).toMatchObject({
@@ -50,7 +50,7 @@ describe('courseWorkbenchReducer', () => {
         label: '圈出标题',
       },
     })
-    expect(state.stage.foregroundSource.durationFrames).toBe(4740)
+    expect(state.stage.foregroundSource.durationFrames).toBe(3300)
   })
 
   it('changes canvas aspect ratio while keeping the workbench route public-safe', () => {
@@ -69,6 +69,77 @@ describe('courseWorkbenchReducer', () => {
     expect(fourByThree.stage.canvasAspectRatio).toBe('4:3')
     expect(portrait.project.aspectRatio).toBe('9:16')
     expect(portrait.stage.canvasAspectRatio).toBe('9:16')
+  })
+
+  it('uses each declared aspect rectangle without applying the source contain transform twice', () => {
+    const hydrated = courseWorkbenchReducer(createDefaultCourseWorkbenchState(), {
+      type: 'hydrate-hyperframes-import',
+      payload: {
+        project: {
+          id: 'manifest-case',
+          title: 'Manifest case',
+          fps: 30,
+          durationFrames: 300,
+          activeAspectRatio: '9:16',
+          source: {
+            background: {
+              id: 'hf-manifest-case',
+              projectPath: '/tmp/manifest-case',
+              entryHtml: 'index.html',
+              assetsDir: 'assets',
+              sourceAspectRatio: '9:16',
+              durationFrames: 300,
+            },
+            foreground: {
+              id: 'foreground-manifest-case',
+              mediaUrl: '/@fs/tmp/manifest-case.mp4',
+              durationFrames: 300,
+              audioPolicy: 'primary',
+              window: { x: 68, y: 70, width: 26, height: 15, shape: 'rounded', opacity: 1 },
+            },
+          },
+        },
+        sourceDimensions: { width: 1080, height: 1920 },
+        sceneMap: {
+          intro: { id: 'intro', fromFrame: 0, durationFrames: 300 },
+        },
+        elementMap: {
+          title: {
+            id: 'title',
+            sceneId: 'intro',
+            role: 'title',
+            selector: '[data-hf-element-id="title"]',
+            text: 'Title',
+            visibility: { fromFrame: 0, toFrame: 300 },
+            rectsByAspect: {
+              '9:16': { x: 108, y: 192, width: 540, height: 192 },
+              '16:9': { x: 0, y: 0, width: 192, height: 108 },
+              '4:3': { x: 144, y: 108, width: 720, height: 216 },
+            },
+          },
+        },
+        bakedAnimationMap: {},
+      },
+    })
+    const element = hydrated.stage.elements.find((candidate) => candidate.id === 'title')
+
+    expect(element?.boxesByAspect?.['9:16']).toEqual({ x: 10, y: 10, width: 50, height: 10 })
+    expect(element?.boxesByAspect?.['16:9']).toEqual({ x: 0, y: 0, width: 10, height: 10 })
+    expect(element?.boxesByAspect?.['4:3']).toEqual({ x: 10, y: 10, width: 50, height: 20 })
+    expect(hydrated.stage.foregroundSource).toMatchObject({
+      id: 'foreground-manifest-case',
+      localPreviewUrl: '/@fs/tmp/manifest-case.mp4',
+      durationFrames: 300,
+      audioPolicy: 'primary',
+    })
+    expect(hydrated.stage.foregroundWindow).toEqual({
+      x: 68,
+      y: 70,
+      width: 26,
+      height: 15,
+      shape: 'rounded',
+      opacity: 1,
+    })
   })
 
   it('seeks by frame and synchronizes the selected segment', () => {
@@ -114,6 +185,80 @@ describe('courseWorkbenchReducer', () => {
     )
   })
 
+  it('adds multiple independent platform animations to the same element', () => {
+    const initial = createDefaultCourseWorkbenchState()
+    const selected = courseWorkbenchReducer(initial, {
+      type: 'select-stage-element',
+      id: 'element-code-sample',
+    })
+    const first = courseWorkbenchReducer(selected, {
+      type: 'bind-selected-action-to-element',
+      from: 10,
+      duration: 80,
+    })
+    const newBinding = courseWorkbenchReducer(first, { type: 'start-new-element-binding' })
+    const selectedHighlight = courseWorkbenchReducer(newBinding, { type: 'select-action', id: 'highlight-box' })
+    const second = courseWorkbenchReducer(selectedHighlight, {
+      type: 'bind-selected-action-to-element',
+      from: 140,
+      duration: 90,
+    })
+    const refs = second.timeline.find((segment) => segment.id === 'seg-code-demo')?.actionRefs
+      .filter((ref) => ref.elementId === 'element-code-sample') ?? []
+
+    expect(refs).toHaveLength(2)
+    expect(refs.map((ref) => ref.actionId)).toEqual(['circle-mark', 'highlight-box'])
+    expect(refs.map((ref) => ref.from)).toEqual([10, 140])
+  })
+
+  it('keeps disabled HyperFrames animations recoverable', () => {
+    const initial = createDefaultCourseWorkbenchState()
+    const animation = initial.detectedHyperframesAnimations[0]
+    const disabled = courseWorkbenchReducer(initial, {
+      type: 'disable-hyperframes-animation',
+      id: animation.id,
+    })
+
+    expect(disabled.hyperframesAnimationOverrides[animation.id]).toEqual({
+      animationId: animation.id,
+      operation: 'disable',
+      fallback: animation.actionSignature === 'entrance'
+        ? 'show-final-state-at-start'
+        : 'keep-base-state',
+    })
+    expect(disabled.detectedHyperframesAnimations).toContainEqual(animation)
+
+    const restored = courseWorkbenchReducer(disabled, {
+      type: 'restore-hyperframes-animation',
+      id: animation.id,
+    })
+    expect(restored.hyperframesAnimationOverrides[animation.id]).toBeUndefined()
+    expect(restored.detectedHyperframesAnimations).toContainEqual(animation)
+  })
+
+  it('blocks overlapping transforms on the same element and channel', () => {
+    const initial = createDefaultCourseWorkbenchState()
+    const selected = courseWorkbenchReducer(initial, { type: 'select-stage-element', id: 'element-code-sample' })
+    const selectedZoom = courseWorkbenchReducer(selected, { type: 'select-action', id: 'slide-zoom' })
+    const first = courseWorkbenchReducer(selectedZoom, {
+      type: 'bind-selected-action-to-element',
+      from: 20,
+      duration: 100,
+    })
+    const newBinding = courseWorkbenchReducer(first, { type: 'start-new-element-binding' })
+    const second = courseWorkbenchReducer(newBinding, {
+      type: 'bind-selected-action-to-element',
+      from: 80,
+      duration: 100,
+    })
+
+    const refs = second.timeline.find((segment) => segment.id === 'seg-code-demo')?.actionRefs
+      .filter((ref) => ref.elementId === 'element-code-sample' && ref.actionId === 'slide-zoom') ?? []
+    expect(refs).toHaveLength(1)
+    expect(second.animationConflict).toContain('scale')
+    expect(second.animationConflict).toContain('980f–1020f')
+  })
+
   it('updates the foreground speaker window without changing media timing rules', () => {
     const state = createDefaultCourseWorkbenchState()
 
@@ -136,7 +281,7 @@ describe('courseWorkbenchReducer', () => {
       shape: 'circle',
     })
     expect(updated.stage.foregroundSource.audioPolicy).toBe('primary')
-    expect(updated.playback.totalFrames).toBe(4740)
+    expect(updated.playback.totalFrames).toBe(3300)
   })
 
   it('resizes the selected action overlay for title callouts', () => {
@@ -179,6 +324,7 @@ describe('courseWorkbenchReducer', () => {
     expect(demoAnimationActions.map((action) => action.category)).toEqual([
       'highlight',
       'arrow',
+      'arrow',
       'circle',
       'text-card',
       'lower-third',
@@ -191,7 +337,7 @@ describe('courseWorkbenchReducer', () => {
       'spotlight',
       'transition',
     ])
-    expect(state.actions).toHaveLength(14)
+    expect(state.actions).toHaveLength(15)
     expect(state.selectedActionId).toBe('circle-mark')
     expect(state.selectedSegmentId).toBe('seg-intro')
     expect(state.timeline[0].actionRefs[0]).toMatchObject({

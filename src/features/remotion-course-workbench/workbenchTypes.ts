@@ -46,6 +46,13 @@ export type ActionParams = {
   line?: number
   direction?: string
   effect?: string
+  arrowShape?: PointingArrowShape
+  arrowImageUrl?: string
+  arrowImageAspectRatio?: number
+  arrowTailAnchorX?: number
+  arrowTailAnchorY?: number
+  arrowTipAnchorX?: number
+  arrowTipAnchorY?: number
 }
 
 export type AnimationPreset = {
@@ -55,6 +62,10 @@ export type AnimationPreset = {
 }
 
 export type AnimationImplementationMode = 'parametric' | 'llm-assisted' | 'custom-component'
+
+export type ActionAssetKind = 'animate-existing-element' | 'add-element-with-animation'
+
+export type PointingArrowShape = 'straight' | 'curve' | 'elbow' | 'custom-image'
 
 export type AnimationImplementation = {
   mode: AnimationImplementationMode
@@ -68,6 +79,7 @@ export type AnimationAction = {
   id: string
   name: string
   category: AnimationActionCategory
+  assetKind: ActionAssetKind
   source?: 'manual' | 'hyperframes'
   selector?: string
   actionSignature?: string
@@ -197,6 +209,13 @@ export type HyperframesImportPayload = {
         durationFrames?: number
         mediaUrl?: string
       }
+      foreground?: {
+        id: string
+        mediaUrl: string
+        durationFrames: number
+        audioPolicy: 'primary'
+        window: ForegroundWindow
+      }
     }
   }
   sourceDimensions: { width: number; height: number }
@@ -222,12 +241,14 @@ export type HyperframesImportPayload = {
     durationFrames: number
     kind: string
     properties: string[]
+    ease?: string
     exportRole: 'baked-internal'
   }>
 }
 
 export type DetectedHyperframesAnimation = {
   id: string
+  elementId: string
   compositionId: string
   selector: string
   actionSignature: string
@@ -235,7 +256,17 @@ export type DetectedHyperframesAnimation = {
   from: number
   duration: number
   properties: string[]
+  ease?: string
   suggestedActionId: string
+}
+
+export type HyperframesAnimationOverride = {
+  animationId: string
+  operation: 'modify' | 'disable'
+  fromFrame?: number
+  durationFrames?: number
+  ease?: string
+  fallback?: 'show-final-state-at-start' | 'keep-base-state'
 }
 
 export type ForegroundWindow = {
@@ -313,6 +344,8 @@ export type CourseWorkbenchState = {
   timeline: TimelineSegment[]
   actions: AnimationAction[]
   detectedHyperframesAnimations: DetectedHyperframesAnimation[]
+  hyperframesAnimationOverrides: Record<string, HyperframesAnimationOverride>
+  animationConflict?: string
   selectedSegmentId: string
   selectedActionId: string
   selectedElementId?: string
@@ -340,6 +373,7 @@ export type CourseWorkbenchAction =
   | { type: 'set-playing'; isPlaying: boolean }
   | { type: 'select-stage-element'; id: string }
   | { type: 'select-action-ref'; id: string }
+  | { type: 'start-new-element-binding' }
   | {
       type: 'bind-selected-action-to-element'
       from?: number
@@ -352,6 +386,14 @@ export type CourseWorkbenchAction =
       patch: Partial<Pick<AnimationActionRef, 'actionId' | 'from' | 'duration' | 'fadeInFrames' | 'fadeOutFrames' | 'params'>>
     }
   | { type: 'remove-selected-action-ref' }
+  | {
+      type: 'modify-hyperframes-animation'
+      id: string
+      patch: Pick<HyperframesAnimationOverride, 'fromFrame' | 'durationFrames' | 'ease'>
+    }
+  | { type: 'disable-hyperframes-animation'; id: string }
+  | { type: 'restore-hyperframes-animation'; id: string }
+  | { type: 'set-background-preview'; mediaUrl: string }
   | { type: 'set-foreground-window'; patch: Partial<ForegroundWindow> }
   | { type: 'set-category-filter'; category: AnimationActionCategory | 'all' }
   | { type: 'create-action'; category: AnimationActionCategory }

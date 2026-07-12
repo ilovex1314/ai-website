@@ -1,4 +1,10 @@
 import { createNewAnimationAction } from './animationLibraryModel'
+import { absoluteActionRange } from './domain/animationTiming'
+import {
+  findAnimationConflicts,
+  type AnimationChannel,
+  type AnimationConflictEntry,
+} from './domain/animationConflicts'
 import type {
   AnimationAction,
   CapCutHandoffPackage,
@@ -12,6 +18,35 @@ import type {
   StageElementKind,
   TimelineSegment,
 } from './workbenchTypes'
+
+function actionChannels(action?: AnimationAction): AnimationChannel[] {
+  if (!action) return ['overlay']
+  if (action.category === 'zoom' || action.params.scale !== undefined) return ['scale']
+  if (
+    action.params.fromX !== undefined
+    || action.params.fromY !== undefined
+    || action.params.toX !== undefined
+    || action.params.toY !== undefined
+  ) return ['translate']
+  if (/rotat/iu.test(action.actionSignature ?? '') || /rotat/iu.test(action.params.effect ?? '')) return ['rotate']
+  return ['overlay']
+}
+
+function platformConflictEntries(state: CourseWorkbenchState, excludedId?: string): AnimationConflictEntry[] {
+  return state.timeline.flatMap((segment) =>
+    segment.actionRefs.flatMap((ref) => {
+      if (!ref.id || ref.id === excludedId || !ref.elementId || ref.exportRole !== 'platform-overlay') return []
+      const range = absoluteActionRange(segment, ref)
+      return [{
+        id: ref.id,
+        elementId: ref.elementId,
+        fromFrame: range.fromFrame,
+        durationFrames: range.durationFrames,
+        channels: actionChannels(state.actions.find((candidate) => candidate.id === ref.actionId)),
+      }]
+    }),
+  )
+}
 
 const localProjectPath = '/Volumes/2TB-NVMe/work/ai-website'
 
@@ -50,6 +85,18 @@ function containedBox(
   }
 }
 
+function percentBox(
+  rect: { x: number; y: number; width: number; height: number },
+  dimensions: { width: number; height: number },
+) {
+  return {
+    x: (rect.x / dimensions.width) * 100,
+    y: (rect.y / dimensions.height) * 100,
+    width: (rect.width / dimensions.width) * 100,
+    height: (rect.height / dimensions.height) * 100,
+  }
+}
+
 function importedStageElements(payload: HyperframesImportPayload): StageElement[] {
   return Object.values(payload.elementMap).map((element) => {
     const sourceRect =
@@ -57,10 +104,15 @@ function importedStageElements(payload: HyperframesImportPayload): StageElement[
       ?? Object.values(element.rectsByAspect)[0]
       ?? { x: 0, y: 0, width: 0, height: 0 }
     const boxesByAspect = Object.fromEntries(
-      Object.entries(compositionDimensions).map(([aspect, dimensions]) => [
-        aspect,
-        containedBox(sourceRect, payload.sourceDimensions, dimensions),
-      ]),
+      Object.entries(compositionDimensions).map(([aspect, dimensions]) => {
+        const declaredRect = element.rectsByAspect[aspect as keyof typeof element.rectsByAspect]
+        return [
+          aspect,
+          declaredRect
+            ? percentBox(declaredRect, dimensions)
+            : containedBox(sourceRect, payload.sourceDimensions, dimensions),
+        ]
+      }),
     ) as StageElement['boxesByAspect']
 
     return {
@@ -332,6 +384,7 @@ export function courseWorkbenchReducer(
             exportRole: 'baked-internal' as const,
           }))
       const background = payload.project.source.background
+      const foreground = payload.project.source.foreground
 
       return {
         ...state,
@@ -364,6 +417,18 @@ export function courseWorkbenchReducer(
               missingActionsCreated: 0,
             },
           },
+          foregroundSource: foreground
+            ? {
+                ...state.stage.foregroundSource,
+                id: foreground.id,
+                name: `前台区口播视频 ${payload.project.title}`,
+                path: foreground.mediaUrl,
+                localPreviewUrl: foreground.mediaUrl,
+                durationFrames: foreground.durationFrames,
+                audioPolicy: foreground.audioPolicy,
+              }
+            : state.stage.foregroundSource,
+          foregroundWindow: foreground?.window ?? state.stage.foregroundWindow,
           elements,
         },
         playback: {
@@ -374,6 +439,7 @@ export function courseWorkbenchReducer(
         timeline,
         detectedHyperframesAnimations: detectedAnimations.map((animation) => ({
           id: animation.id,
+          elementId: animation.elementId,
           compositionId: animation.sceneId,
           selector: payload.elementMap[animation.elementId]?.selector ?? '',
           actionSignature: animation.kind,
@@ -381,8 +447,11 @@ export function courseWorkbenchReducer(
           from: animation.fromFrame,
           duration: animation.durationFrames,
           properties: animation.properties,
+          ease: 'ease' in animation && typeof animation.ease === 'string' ? animation.ease : undefined,
           suggestedActionId: animation.kind,
         })),
+        hyperframesAnimationOverrides: {},
+        animationConflict: undefined,
         selectedSegmentId: timeline[0]?.id ?? state.selectedSegmentId,
         selectedElementId: undefined,
         selectedActionRefId: undefined,
@@ -478,6 +547,13 @@ export function courseWorkbenchReducer(
       }
     }
 
+    case 'start-new-element-binding':
+      return {
+        ...state,
+        selectedActionRefId: undefined,
+        animationConflict: undefined,
+      }
+
     case 'bind-selected-action-to-element': {
       if (!state.selectedElementId) {
         return state
@@ -508,10 +584,28 @@ export function courseWorkbenchReducer(
         renderedInBackground: false,
         exportableOverlay: true,
       }
+      const range = absoluteActionRange(selectedSegment, actionRef)
+      const conflicts = findAnimationConflicts({
+        id: actionRef.id,
+        elementId: actionRef.elementId,
+        fromFrame: range.fromFrame,
+        durationFrames: range.durationFrames,
+        channels: actionChannels(state.actions.find((candidate) => candidate.id === actionRef.actionId)),
+      }, platformConflictEntries(state, existingRef?.id))
+
+      if (conflicts.length > 0) {
+        const conflict = conflicts[0]
+        return {
+          ...state,
+          animationConflict:
+            `${conflict.channel} 通道与 ${conflict.conflictingId} 在 ${conflict.fromFrame}f–${conflict.toFrame}f 重叠`,
+        }
+      }
 
       return {
         ...state,
         selectedActionRefId: actionRef.id,
+        animationConflict: undefined,
         timeline: state.timeline.map((segment) =>
           segment.id === selectedSegment.id
             ? {
@@ -530,9 +624,44 @@ export function courseWorkbenchReducer(
         return state
       }
 
+      const selectedEntry = state.timeline.flatMap((segment) =>
+        segment.actionRefs
+          .filter((ref) => ref.id === state.selectedActionRefId)
+          .map((ref) => ({ segment, ref })),
+      )[0]
+
+      if (!selectedEntry) return state
+      const nextRef = {
+        ...selectedEntry.ref,
+        ...action.patch,
+        params: action.patch.params
+          ? { ...selectedEntry.ref.params, ...action.patch.params }
+          : selectedEntry.ref.params,
+      }
+      const range = absoluteActionRange(selectedEntry.segment, nextRef)
+      const conflicts = nextRef.elementId
+        ? findAnimationConflicts({
+            id: nextRef.id ?? state.selectedActionRefId,
+            elementId: nextRef.elementId,
+            fromFrame: range.fromFrame,
+            durationFrames: range.durationFrames,
+            channels: actionChannels(state.actions.find((candidate) => candidate.id === nextRef.actionId)),
+          }, platformConflictEntries(state, state.selectedActionRefId))
+        : []
+
+      if (conflicts.length > 0) {
+        const conflict = conflicts[0]
+        return {
+          ...state,
+          animationConflict:
+            `${conflict.channel} 通道与 ${conflict.conflictingId} 在 ${conflict.fromFrame}f–${conflict.toFrame}f 重叠`,
+        }
+      }
+
       return {
         ...state,
         selectedActionId: action.patch.actionId ?? state.selectedActionId,
+        animationConflict: undefined,
         timeline: state.timeline.map((segment) => ({
           ...segment,
           actionRefs: segment.actionRefs.map((ref) =>
@@ -572,6 +701,62 @@ export function courseWorkbenchReducer(
         selectedActionId: nextElementRef?.ref.actionId ?? state.selectedActionId,
       }
     }
+
+    case 'modify-hyperframes-animation': {
+      const animation = state.detectedHyperframesAnimations.find((candidate) => candidate.id === action.id)
+      if (!animation) return state
+      return {
+        ...state,
+        hyperframesAnimationOverrides: {
+          ...state.hyperframesAnimationOverrides,
+          [action.id]: {
+            animationId: action.id,
+            operation: 'modify',
+            fromFrame: action.patch.fromFrame ?? animation.from,
+            durationFrames: action.patch.durationFrames ?? animation.duration,
+            ease: action.patch.ease ?? animation.ease,
+          },
+        },
+      }
+    }
+
+    case 'disable-hyperframes-animation': {
+      const animation = state.detectedHyperframesAnimations.find((candidate) => candidate.id === action.id)
+      if (!animation) return state
+      return {
+        ...state,
+        hyperframesAnimationOverrides: {
+          ...state.hyperframesAnimationOverrides,
+          [action.id]: {
+            animationId: action.id,
+            operation: 'disable',
+            fallback: animation.actionSignature === 'entrance'
+              ? 'show-final-state-at-start'
+              : 'keep-base-state',
+          },
+        },
+      }
+    }
+
+    case 'restore-hyperframes-animation': {
+      const overrides = { ...state.hyperframesAnimationOverrides }
+      delete overrides[action.id]
+      return { ...state, hyperframesAnimationOverrides: overrides }
+    }
+
+    case 'set-background-preview':
+      return {
+        ...state,
+        stage: {
+          ...state.stage,
+          backgroundSource: {
+            ...state.stage.backgroundSource,
+            localPreviewUrl: action.mediaUrl,
+            renderedPreview: action.mediaUrl,
+            previewMode: 'video',
+          },
+        },
+      }
 
     case 'set-foreground-window':
       return {

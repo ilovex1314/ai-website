@@ -14,6 +14,8 @@ dist-ssr
 .worktrees/
 .superpowers/
 .course-workbench/
+public/workbench-render/
+course-assembly/
 
 # HyperFrames generated media
 videos/**/renders/

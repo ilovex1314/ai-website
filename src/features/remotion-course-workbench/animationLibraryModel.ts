@@ -1,5 +1,6 @@
 import type {
   ActionParams,
+  ActionAssetKind,
   AnimationAction,
   AnimationActionCategory,
   AnimationImplementation,
@@ -52,8 +53,18 @@ export function createDefaultActionParams(category: AnimationActionCategory): Ac
   }
 }
 
-function createAction(action: AnimationAction): AnimationAction {
-  return action
+function defaultAssetKind(category: AnimationActionCategory): ActionAssetKind {
+  if (['arrow', 'text-card', 'lower-third', 'progress', 'step-reveal', 'cursor', 'transition'].includes(category)) {
+    return 'add-element-with-animation'
+  }
+
+  return 'animate-existing-element'
+}
+
+function createAction(
+  action: Omit<AnimationAction, 'assetKind'> & { assetKind?: ActionAssetKind },
+): AnimationAction {
+  return { ...action, assetKind: action.assetKind ?? defaultAssetKind(action.category) }
 }
 
 function parametricImplementation(intent: string): AnimationImplementation {
@@ -122,6 +133,35 @@ export const demoAnimationActions: AnimationAction[] = [
         label: '蓝色聚焦',
         params: createDefaultActionParams('highlight'),
       },
+    ],
+  }),
+  createAction({
+    id: 'pointing-arrow',
+    name: '指向',
+    category: 'arrow',
+    assetKind: 'add-element-with-animation',
+    description: '新增一个箭头元素，尖端锚定目标 DOM，尾部可在画布拖拽。',
+    status: 'ready',
+    version: '1.0.0',
+    defaultDurationFrames: 90,
+    params: {
+      color: '#2563eb',
+      label: '指向重点',
+      arrowShape: 'straight',
+      offsetX: -260,
+      offsetY: 160,
+      widthDelta: 0,
+      heightDelta: 0,
+      arrowTailAnchorX: 0.08,
+      arrowTailAnchorY: 0.5,
+      arrowTipAnchorX: 0.92,
+      arrowTipAnchorY: 0.5,
+    },
+    implementation: customComponentImplementation('创建独立箭头覆盖元素，尖端持续锚定目标 DOM，尾部支持拖拽和缩放。'),
+    presets: [
+      { id: 'straight', label: '直线箭头', params: { arrowShape: 'straight', color: '#2563eb' } },
+      { id: 'curve', label: '曲线箭头', params: { arrowShape: 'curve', color: '#2563eb' } },
+      { id: 'elbow', label: '折线箭头', params: { arrowShape: 'elbow', color: '#2563eb' } },
     ],
   }),
   createAction({
@@ -280,6 +320,7 @@ export function createNewAnimationAction(category: AnimationActionCategory, inde
     id: `custom-${category}-${index}`,
     name: `新建${label}动作`,
     category,
+    assetKind: defaultAssetKind(category),
     description: `用于课程视频中的${label}教学标注。`,
     status: 'draft',
     version: '0.1.0',

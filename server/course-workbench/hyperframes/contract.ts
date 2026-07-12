@@ -29,6 +29,7 @@ const require = createRequire(import.meta.url)
 const { JSDOM } = require('jsdom') as { JSDOM: JsdomConstructor }
 const positiveInteger = z.number().int().positive()
 const nonnegativeInteger = z.number().int().nonnegative()
+const finiteNumber = z.number().finite()
 
 const sceneSchema = z.object({
   id: z.string().min(1),
@@ -58,6 +59,39 @@ export const animationManifestSchema = z.object({
 }).strict()
 
 export type AnimationManifest = z.infer<typeof animationManifestSchema>
+
+const pixelRectSchema = z.object({
+  x: finiteNumber,
+  y: finiteNumber,
+  width: finiteNumber.nonnegative(),
+  height: finiteNumber.nonnegative(),
+}).strict()
+
+const runtimeElementSchema = z.object({
+  id: z.string().min(1),
+  sceneId: z.string().min(1),
+  role: z.string().min(1),
+  selector: z.string().min(1),
+  text: z.string(),
+  depth: nonnegativeInteger,
+  visibility: z.object({
+    fromFrame: nonnegativeInteger,
+    toFrame: nonnegativeInteger,
+  }).strict(),
+  rectsByAspect: z.partialRecord(z.enum(['16:9', '4:3', '9:16']), pixelRectSchema),
+  thumbnailsByAspect: z.partialRecord(z.enum(['16:9', '4:3', '9:16']), z.string().min(1)),
+}).strict()
+
+export const elementMapSchema = z.object({
+  schemaVersion: z.literal(1),
+  sourceDimensions: z.object({
+    width: positiveInteger,
+    height: positiveInteger,
+  }).strict(),
+  elements: z.record(z.string().min(1), runtimeElementSchema),
+}).strict()
+
+export type DeclaredElementMap = z.infer<typeof elementMapSchema>
 
 export type HyperframesContractReport = {
   valid: boolean

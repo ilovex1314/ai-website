@@ -40,6 +40,7 @@ vi.mock('@remotion/player', async () => {
       ref,
     ) {
       const listeners = React.useRef(new Map<string, (event: { detail: { frame: number } }) => void>())
+      const containerRef = React.useRef<HTMLDivElement>(null)
       const [frame, setFrame] = React.useState(props.initialFrame ?? 0)
       const Component = props.component
       playerHarness.frame = frame
@@ -56,7 +57,7 @@ vi.mock('@remotion/player', async () => {
           listeners.current.set(name, listener)
         },
         removeEventListener: (name: string) => listeners.current.delete(name),
-        getContainerNode: () => null,
+        getContainerNode: () => containerRef.current,
         getCurrentFrame: () => playerHarness.frame,
         getScale: () => 1,
         isPlaying: () => false,
@@ -73,7 +74,7 @@ vi.mock('@remotion/player', async () => {
       playerHarness.emitFrame = seekTo
 
       return (
-        <div data-testid="mock-remotion-player">
+        <div data-testid="mock-remotion-player" ref={containerRef}>
           <Component {...props.inputProps} />
         </div>
       )
@@ -92,6 +93,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('RemotionCourseWorkbench', () => {
@@ -99,10 +101,10 @@ describe('RemotionCourseWorkbench', () => {
     render(<RemotionCourseWorkbench />)
 
     expect(screen.getByRole('heading', { level: 2, name: 'Media Intake' })).toBeInTheDocument()
-    expect(screen.getByText('Codex Keyframes Tutorial')).toBeInTheDocument()
-    expect(screen.getByText('/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial')).toBeInTheDocument()
-    expect(screen.getByTestId('case-duration')).toHaveTextContent('158s')
-    expect(screen.getByTestId('case-duration')).toHaveTextContent('4740f')
+    expect(screen.getByText('口播课程动画制作台教学案例')).toBeInTheDocument()
+    expect(screen.getByText('/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case')).toBeInTheDocument()
+    expect(screen.getByTestId('case-duration')).toHaveTextContent('110s')
+    expect(screen.getByTestId('case-duration')).toHaveTextContent('3300f')
     expect(screen.getByText('后台区')).toBeInTheDocument()
     expect(screen.getByText('前台区')).toBeInTheDocument()
     expect(screen.getByText('HyperFrames Project')).toBeInTheDocument()
@@ -127,6 +129,17 @@ describe('RemotionCourseWorkbench', () => {
 
     await user.selectOptions(screen.getByLabelText('画布比例'), '9:16')
     expect(screen.getByTestId('preview-canvas')).toHaveAttribute('data-aspect-ratio', '9:16')
+  })
+
+  it('uses the approved two-column Review layout only for 9:16 video', async () => {
+    const user = userEvent.setup()
+    render(<RemotionCourseWorkbench />)
+
+    const review = screen.getByTestId('course-preview-stage')
+    expect(review).toHaveAttribute('data-layout-mode', 'portrait-review')
+
+    await user.selectOptions(screen.getByLabelText('画布比例'), '16:9')
+    expect(review).toHaveAttribute('data-layout-mode', 'standard-review')
   })
 
   it('maps background elements and action overlays to the 9:16 media frame instead of the canvas shell', () => {
@@ -163,7 +176,7 @@ describe('RemotionCourseWorkbench', () => {
     )
   })
 
-  it('renders the Codex Keyframes Tutorial video as the review background without blocking element selection', async () => {
+  it('renders the manifest-first teaching video as the review background without blocking element selection', async () => {
     const user = userEvent.setup()
     render(<RemotionCourseWorkbench />)
 
@@ -173,9 +186,9 @@ describe('RemotionCourseWorkbench', () => {
     expect(backgroundVideo).toHaveAttribute('data-volume', '0')
     expect(backgroundVideo).toHaveAttribute(
       'src',
-      expect.stringContaining('/@fs/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial'),
+      expect.stringContaining('/@fs/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case'),
     )
-    expect(backgroundVideo).toHaveAttribute('src', expect.stringContaining('codex-keyframes-tutorial.mp4'))
+    expect(backgroundVideo).toHaveAttribute('src', expect.stringContaining('remotion-course-workbench-manifest-case.mp4'))
 
     await user.click(screen.getByRole('button', { name: /视频标题/ }))
     expect(screen.getAllByText('已选元素：视频标题')).toHaveLength(2)
@@ -184,14 +197,35 @@ describe('RemotionCourseWorkbench', () => {
   it('renders the foreground speaker video as the draggable primary-audio window', () => {
     render(<RemotionCourseWorkbench />)
 
+    expect(screen.getByTestId('background-video')).toHaveAttribute('data-preview-native', 'true')
     const foregroundVideo = screen.getByTestId('foreground-video')
 
-    expect(foregroundVideo).toHaveAttribute('data-muted', 'false')
-    expect(foregroundVideo).toHaveAttribute('data-volume', '1')
+    expect(foregroundVideo).toHaveAttribute('data-preview-native', 'true')
+    expect(foregroundVideo).toHaveAttribute('data-muted', 'true')
+    expect(foregroundVideo).toHaveAttribute('data-volume', '0')
+    expect(foregroundVideo).toHaveAttribute('data-audio-policy', 'primary')
     expect(foregroundVideo).toHaveClass('preview-speaker__video')
     expect(window.getComputedStyle(foregroundVideo).objectFit).toBe('contain')
-    expect(foregroundVideo).toHaveAttribute('src', expect.stringContaining('codex-keyframes-tutorial.mp4'))
+    expect(foregroundVideo).toHaveAttribute('src', expect.stringContaining('remotion-course-workbench-manifest-case.mp4'))
     expect(screen.queryByText('口播')).not.toBeInTheDocument()
+  })
+
+  it('keeps the foreground muted until native media playback has actually started', async () => {
+    let releasePlayback: (() => void) | undefined
+    const started = new Promise<void>((resolve) => {
+      releasePlayback = resolve
+    })
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => started)
+    render(<RemotionCourseWorkbench />)
+
+    fireEvent.click(screen.getByRole('button', { name: '播放' }))
+    expect(screen.getByTestId('foreground-video')).toHaveAttribute('data-muted', 'true')
+
+    await act(async () => {
+      releasePlayback?.()
+      await started
+    })
+    expect(screen.getByTestId('foreground-video')).toHaveAttribute('data-muted', 'false')
   })
 
   it('updates the playback frame and slider from the authoritative Player frame event', () => {
@@ -200,9 +234,32 @@ describe('RemotionCourseWorkbench', () => {
     act(() => playerHarness.emitFrame?.(60))
 
     expect(screen.getByLabelText('播放头')).toHaveValue('60')
-    expect(screen.getByText('60 / 4740f')).toBeInTheDocument()
+    expect(screen.getByText('60 / 3300f')).toBeInTheDocument()
     expect(screen.getByTestId('background-video')).toBeInTheDocument()
     expect(screen.getByTestId('foreground-video')).toBeInTheDocument()
+  })
+
+  it('uses timeline chapters as playback shortcuts', () => {
+    render(<RemotionCourseWorkbench />)
+
+    fireEvent.click(screen.getByRole('button', { name: /工具边界与实现演示/ }))
+
+    expect(screen.getByLabelText('播放头')).toHaveValue('900')
+    expect(screen.getByText('900 / 3300f')).toBeInTheDocument()
+  })
+
+  it('keeps the playback frame moving when Player media advances without a frame event', () => {
+    render(<RemotionCourseWorkbench />)
+
+    const backgroundVideo = screen.getByTestId('background-video')
+    Object.defineProperty(backgroundVideo, 'currentTime', {
+      configurable: true,
+      value: 2.5,
+    })
+    fireEvent.timeUpdate(backgroundVideo)
+
+    expect(screen.getByLabelText('播放头')).toHaveValue('75')
+    expect(screen.getByText('75 / 3300f')).toBeInTheDocument()
   })
 
   it('renders action overlays only for active timeline ranges', () => {
@@ -273,14 +330,14 @@ describe('RemotionCourseWorkbench', () => {
     expect(screen.getByTestId('element-inspector')).toHaveTextContent('尚未绑定动画')
   })
 
-  it('plays, pauses, and seeks the single Remotion Player from the review controls', async () => {
+  it('plays native media while using the Remotion Player only as a frame-synced overlay renderer', async () => {
     const user = userEvent.setup()
 
     render(<RemotionCourseWorkbench />)
 
     await user.click(screen.getByRole('button', { name: '播放' }))
 
-    expect(playerHarness.play).toHaveBeenCalledTimes(1)
+    expect(playerHarness.play).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: '暂停' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '60' } })
@@ -289,7 +346,7 @@ describe('RemotionCourseWorkbench', () => {
 
     await user.click(screen.getByRole('button', { name: '暂停' }))
 
-    expect(playerHarness.pause).toHaveBeenCalledTimes(1)
+    expect(playerHarness.pause).not.toHaveBeenCalled()
   })
 
   it('falls back to the mock slide when no local preview url is available', () => {
@@ -387,7 +444,7 @@ describe('RemotionCourseWorkbench', () => {
     await user.click(screen.getByRole('button', { name: /视频标题/ }))
 
     const inspector = screen.getByTestId('element-inspector')
-    expect(inspector).toHaveTextContent('DOM 绑定动画')
+    expect(inspector).toHaveTextContent('平台新增动画')
     expect(inspector).toHaveTextContent('已绑定动画')
     expect(inspector).toHaveTextContent('circle-mark')
     expect(inspector).toHaveTextContent('红色圈注')
@@ -395,6 +452,25 @@ describe('RemotionCourseWorkbench', () => {
     expect(inspector).toHaveTextContent('150f')
     expect(inspector).toHaveTextContent('fadeIn 8f')
     expect(inspector).toHaveTextContent('fadeOut 10f')
+  })
+
+  it('shows HyperFrames element animations and keeps disabled cards recoverable', async () => {
+    const user = userEvent.setup()
+    render(<RemotionCourseWorkbench />)
+
+    fireEvent.change(screen.getByLabelText('播放头'), { target: { value: '930' } })
+    await user.click(screen.getByRole('button', { name: /代码示例区域/ }))
+
+    const inspector = screen.getByTestId('element-inspector')
+    expect(within(inspector).getByText('HyperFrames 内置动画')).toBeInTheDocument()
+    expect(within(inspector).getByText('代码区域行强调')).toBeInTheDocument()
+
+    await user.click(within(inspector).getByRole('button', { name: '停用 HyperFrames 动画' }))
+    expect(within(inspector).getByText('已停用')).toBeInTheDocument()
+    expect(within(inspector).getByRole('button', { name: '恢复原始动画' })).toBeInTheDocument()
+
+    await user.click(within(inspector).getByRole('button', { name: '恢复原始动画' }))
+    expect(within(inspector).queryByText('已停用')).not.toBeInTheDocument()
   })
 
   it('shows an empty DOM binding state and add-binding controls for an unbound DOM', async () => {
@@ -472,7 +548,7 @@ describe('RemotionCourseWorkbench', () => {
 
     await user.click(screen.getByRole('button', { name: /视频标题/ }))
 
-    expect(screen.getByTestId('element-inspector')).toHaveTextContent('DOM 绑定动画')
+    expect(screen.getByTestId('element-inspector')).toHaveTextContent('平台新增动画')
     expect(screen.getByRole('heading', { level: 2, name: /Action Library Manager/ })).toBeInTheDocument()
     expect(screen.getByTestId('element-inspector')).not.toContainElement(
       screen.getByRole('heading', { level: 2, name: /Action Library Manager/ }),
@@ -748,5 +824,27 @@ describe('RemotionCourseWorkbench', () => {
     expect(screen.getByTestId('capcut-package-output')).not.toHaveTextContent('overlays/008-code-line-highlight-alpha.webm')
     expect(screen.getByTestId('capcut-package-output')).toHaveTextContent('"overlayCount": 1')
     expect(screen.getByTestId('capcut-package-output')).toHaveTextContent('edit-guide.md')
+  })
+
+  it('exports the current composition and exposes the rendered MP4', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      outputPath: '/tmp/master-9x16.mp4',
+      mediaUrl: '/@fs/tmp/master-9x16.mp4',
+    }), { status: 201, headers: { 'content-type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<RemotionCourseWorkbench />)
+
+    await user.click(screen.getByRole('button', { name: '导出 MP4' }))
+
+    expect(await screen.findByRole('link', { name: '打开成片' })).toHaveAttribute(
+      'href',
+      '/@fs/tmp/master-9x16.mp4',
+    )
+    expect(screen.getByText('导出完成')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/projects/remotion-course-workbench-manifest-case/render',
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 })

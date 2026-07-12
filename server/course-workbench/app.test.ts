@@ -41,7 +41,7 @@ async function createLegacyHyperframesSource(): Promise<{ sourceProject: string;
   return { sourceProject: await realpath(sourceProject), sourceRoot }
 }
 
-async function createForegroundMedia(): Promise<{ bytes: Buffer; name: string }> {
+async function createForegroundMedia(): Promise<{ bytes: Buffer; name: string; path: string; root: string }> {
   const root = await createTemporaryDirectory('course-workbench-foreground-')
   const path = join(root, 'speaker.mp4')
   await execFileAsync('ffmpeg', [
@@ -63,7 +63,12 @@ async function createForegroundMedia(): Promise<{ bytes: Buffer; name: string }>
     'aac',
     path,
   ])
-  return { bytes: await readFile(path), name: 'speaker.mp4' }
+  return {
+    bytes: await readFile(path),
+    name: 'speaker.mp4',
+    path: await realpath(path),
+    root: await realpath(root),
+  }
 }
 
 function createValidProject(sourceProject: string, title = 'Codex Keyframes Tutorial'): CourseProjectV2 {
@@ -89,6 +94,7 @@ function createValidProject(sourceProject: string, title = 'Codex Keyframes Tuto
         id: 'circle-mark',
         name: 'Red Circle',
         category: 'circle',
+        assetKind: 'animate-existing-element',
         description: 'Marks an important title.',
         status: 'ready',
         version: '1.0.0',
@@ -270,6 +276,82 @@ describe('project repository', () => {
 })
 
 describe('workbench server', () => {
+  it('persists HyperFrames overrides in a working copy without mutating the source project', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const validProject = createValidProject(sourceProject)
+    const repository = createProjectRepository(projectRoot, [sourceProject])
+    await repository.save(validProject)
+    const sourceHtml = await readFile(join(sourceProject, 'index.html'), 'utf8')
+    const server = createWorkbenchServer({
+      projectRoot,
+      allowedSourceRoots: [sourceProject],
+      port: 0,
+      agentProvider: 'mock',
+    })
+    const baseUrl = await listen(server)
+
+    try {
+      const client = new WorkbenchClient({ baseUrl: `${baseUrl}/api` })
+      const result = await client.saveHyperframesOverrides(validProject.id, {
+        sourcePath: sourceProject,
+        fps: 30,
+        renderPreview: false,
+        overrides: [{
+          animationId: 'runtime-title-15-entrance-1',
+          operation: 'disable',
+          fallback: 'show-final-state-at-start',
+        }],
+      })
+
+      expect(await readFile(join(sourceProject, 'index.html'), 'utf8')).toBe(sourceHtml)
+      expect(result.workingCopyPath).toContain(validProject.id)
+      await expect(readFile(result.overridesPath, 'utf8')).resolves.toContain('runtime-title-15-entrance-1')
+      expect(result.mediaUrl).toBeUndefined()
+    } finally {
+      await close(server)
+    }
+  })
+
+  it('renders a short project with local background and foreground media', async () => {
+    const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
+    const sourceProject = await createSourceProject()
+    const media = await createForegroundMedia()
+    const project = createValidProject(sourceProject)
+    project.id = 'render-smoke'
+    project.title = 'Render smoke'
+    project.durationFrames = 6
+    project.source.background.mediaUrl = `/@fs${media.path}`
+    project.source.background.durationFrames = 6
+    project.source.foreground = {
+      id: 'foreground-speaker',
+      mediaUrl: `/@fs${media.path}`,
+      durationFrames: 6,
+      audioPolicy: 'primary',
+      window: { x: 65, y: 55, width: 20, height: 18, shape: 'rounded', opacity: 1 },
+    }
+    const repository = createProjectRepository(projectRoot, [sourceProject, media.root])
+    await repository.save(project)
+    const server = createWorkbenchServer({
+      projectRoot,
+      allowedSourceRoots: [sourceProject, media.root],
+      port: 0,
+      agentProvider: 'mock',
+    })
+    const baseUrl = await listen(server)
+
+    try {
+      const client = new WorkbenchClient({ baseUrl: `${baseUrl}/api` })
+      const result = await client.renderProject(project, '9:16')
+
+      expect(result.outputPath).toMatch(/renders\/master-9x16\.mp4$/u)
+      expect(result.mediaUrl).toBe(`/@fs${result.outputPath}`)
+      expect(existsSync(result.outputPath)).toBe(true)
+    } finally {
+      await close(server)
+    }
+  }, 30_000)
+
   it('serves JSON health and project routes through WorkbenchClient', async () => {
     const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
     const sourceProject = await createSourceProject()

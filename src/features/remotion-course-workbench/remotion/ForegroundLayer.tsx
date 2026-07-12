@@ -56,7 +56,10 @@ export function ForegroundLayer({ foreground, interactive = false, projectDurati
         {interactive ? (
           <Video
             className="preview-speaker__video"
+            data-muted="false"
+            data-preview-native="false"
             data-testid="foreground-video"
+            data-volume="1"
             muted={false}
             src={foreground.mediaUrl}
             volume={1}

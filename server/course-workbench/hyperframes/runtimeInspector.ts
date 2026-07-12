@@ -39,10 +39,23 @@ export type RuntimeElement = {
   rectsByAspect: Partial<Record<CanvasAspectRatio, PixelRect>>
 }
 
+export type RuntimeAnimation = {
+  id: string
+  sceneId: string
+  elementId: string
+  fromFrame: number
+  durationFrames: number
+  kind: string
+  properties: string[]
+  ease?: string
+  exportRole: 'baked-internal'
+}
+
 export type RuntimeInspection = {
   sourceDimensions: { width: number; height: number }
   sceneMap: Record<string, RuntimeScene>
   elementMap: Record<string, RuntimeElement>
+  animationMap: Record<string, RuntimeAnimation>
 }
 
 const viewports: Record<CanvasAspectRatio, { width: number; height: number }> = {
@@ -153,6 +166,7 @@ export async function inspectHyperframesRuntime(
   const browser = await chromium.launch({ headless: true })
   const sceneMap: Record<string, RuntimeScene> = {}
   const elementMap: Record<string, RuntimeElement> = {}
+  const animationMap: Record<string, RuntimeAnimation> = {}
   let sourceDimensions: RuntimeInspection['sourceDimensions'] | undefined
 
   try {
@@ -171,6 +185,84 @@ export async function inspectHyperframesRuntime(
       )
       await page.goto(url, { waitUntil: 'load' })
       await page.waitForFunction(() => document.readyState === 'complete')
+
+      if (aspect === aspects[0]) {
+        const runtimeAnimations = await page.evaluate((fps) => {
+          type RuntimeTween = {
+            duration?: () => number
+            globalTime?: (time: number) => number
+            startTime?: () => number
+            targets?: () => Element[]
+            vars?: Record<string, unknown>
+          }
+          type RuntimeTimeline = {
+            getChildren?: (nested?: boolean, tweens?: boolean, timelines?: boolean) => RuntimeTween[]
+          }
+          const timelines = (window as typeof window & { __timelines?: Record<string, RuntimeTimeline> }).__timelines
+          const propertyChannels = (vars: Record<string, unknown>) => {
+            const channels = new Set<string>()
+            if (['x', 'xPercent', 'y', 'yPercent'].some((key) => key in vars)) channels.add('translate')
+            if (['scale', 'scaleX', 'scaleY'].some((key) => key in vars)) channels.add('scale')
+            if (['rotation', 'rotationX', 'rotationY'].some((key) => key in vars)) channels.add('rotate')
+            if ('opacity' in vars || 'autoAlpha' in vars) channels.add('opacity')
+            return [...channels]
+          }
+          const classify = (vars: Record<string, unknown>, properties: string[]) => {
+            if (vars.runBackwards === true && (vars.opacity === 0 || vars.autoAlpha === 0)) return 'entrance'
+            if (vars.runBackwards !== true && (vars.opacity === 0 || vars.autoAlpha === 0)) return 'exit'
+            if (typeof vars.repeat === 'number' && vars.repeat !== 0) return 'loop'
+            if (properties.includes('translate')) return 'move'
+            if (properties.includes('scale')) return 'scale'
+            if (properties.includes('rotate')) return 'rotate'
+            return 'effect'
+          }
+          const results: Array<Omit<RuntimeAnimation, 'exportRole'>> = []
+          let ordinal = 0
+
+          Object.values(timelines ?? {}).forEach((timeline) => {
+            timeline.getChildren?.(true, true, false).forEach((tween) => {
+              const vars = tween.vars ?? {}
+              const properties = propertyChannels(vars)
+              const fromFrame = Math.max(0, Math.round(
+                (tween.globalTime?.(0) ?? tween.startTime?.() ?? 0) * fps,
+              ))
+              const durationFrames = Math.max(1, Math.round((tween.duration?.() ?? 0) * fps))
+              const kind = classify(vars, properties)
+
+              tween.targets?.().forEach((target) => {
+                if (!(target instanceof HTMLElement)) return
+                if (target.closest('.transition,[data-track-index="80"]')) return
+                const ownedTargets = target.hasAttribute('data-hf-element-id')
+                  ? [target]
+                  : Array.from(target.querySelectorAll<HTMLElement>('[data-hf-element-id]'))
+
+                ownedTargets.forEach((element) => {
+                  const elementId = element.dataset.hfElementId
+                  const sceneId = element.closest<HTMLElement>('[data-hf-scene-id]')?.dataset.hfSceneId
+                  if (!elementId || !sceneId || properties.length === 0) return
+                  ordinal += 1
+                  results.push({
+                    id: `runtime-${elementId}-${fromFrame}-${kind}-${ordinal}`,
+                    sceneId,
+                    elementId,
+                    fromFrame,
+                    durationFrames,
+                    kind,
+                    properties,
+                    ...(typeof vars.ease === 'string' ? { ease: vars.ease } : {}),
+                  })
+                })
+              })
+            })
+          })
+
+          return results
+        }, manifest.fps)
+
+        runtimeAnimations.forEach((animation) => {
+          animationMap[animation.id] = { ...animation, exportRole: 'baked-internal' }
+        })
+      }
 
       const dimensions = await page.evaluate(() => {
         const composition = document.querySelector<HTMLElement>('[data-composition-id]')
@@ -400,5 +492,5 @@ export async function inspectHyperframesRuntime(
     })
   }
 
-  return { sourceDimensions, sceneMap, elementMap }
+  return { sourceDimensions, sceneMap, elementMap, animationMap }
 }

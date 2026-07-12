@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { HyperframesImportPayload } from './workbenchTypes'
 
 type MigrationSummary = {
@@ -50,7 +50,7 @@ export type CourseProjectIntakeApi = {
   uploadForeground(projectId: string, file: File): Promise<ForegroundUploadResult>
 }
 
-type IntakeState = 'idle' | 'scanning' | 'migration-required' | 'applying' | 'ready' | 'error'
+export type IntakeState = 'idle' | 'scanning' | 'migration-required' | 'applying' | 'ready' | 'error'
 
 type CourseProjectIntakeProps = {
   projectPath: string
@@ -65,9 +65,11 @@ type CourseProjectIntakeProps = {
   }
   backgroundAudioPolicy?: string
   foregroundAudioPolicy?: string
+  autoImport?: boolean
   api?: CourseProjectIntakeApi
   onReady?: (result: Extract<CourseProjectIntakeResult, { status: 'ready' }>) => void
   onForegroundReady?: (result: ForegroundUploadResult, file: File) => void
+  onStateChange?: (state: IntakeState) => void
 }
 
 type IntakeError = {
@@ -153,9 +155,11 @@ export function CourseProjectIntake({
   structure,
   backgroundAudioPolicy = 'muted',
   foregroundAudioPolicy = 'primary',
+  autoImport = false,
   api = defaultApi,
   onReady,
   onForegroundReady,
+  onStateChange,
 }: CourseProjectIntakeProps) {
   const [state, setState] = useState<IntakeState>('idle')
   const [summary, setSummary] = useState<MigrationSummary>({
@@ -167,8 +171,9 @@ export function CourseProjectIntake({
   const [error, setError] = useState<IntakeError>()
   const [uploadStatus, setUploadStatus] = useState<string>()
   const fileInput = useRef<HTMLInputElement>(null)
+  const hasAutoImported = useRef(false)
 
-  const importProject = async (applyMetadata: boolean) => {
+  const importProject = useCallback(async (applyMetadata: boolean) => {
     setState(applyMetadata ? 'applying' : 'scanning')
     setError(undefined)
 
@@ -197,7 +202,17 @@ export function CourseProjectIntake({
       setError(intakeError(nextError))
       setState('error')
     }
-  }
+  }, [api, onReady, projectPath])
+
+  useEffect(() => {
+    onStateChange?.(state)
+  }, [onStateChange, state])
+
+  useEffect(() => {
+    if (!autoImport || hasAutoImported.current) return
+    hasAutoImported.current = true
+    void importProject(false)
+  }, [autoImport, importProject])
 
   const uploadForeground = async (file: File) => {
     if (projectId === undefined) {

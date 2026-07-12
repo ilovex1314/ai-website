@@ -219,6 +219,58 @@ describe('CourseComposition', () => {
       transition: 'none',
     })
   })
+
+  it('renders a pointing element whose tip stays anchored to the selected DOM edge', () => {
+    const pointingProject = {
+      ...fixture,
+      actionTemplates: [
+        ...fixture.actionTemplates,
+        {
+          ...fixture.actionTemplates[0],
+          id: 'pointing-arrow',
+          name: 'Pointing Arrow',
+          category: 'arrow',
+          assetKind: 'add-element-with-animation' as const,
+          params: { color: '#ef4444', arrowShape: 'curve', offsetX: -220, offsetY: 120 },
+        },
+      ],
+      actionInstances: [
+        {
+          id: 'point-to-title',
+          templateId: 'pointing-arrow',
+          fromFrame: 18,
+          durationFrames: 80,
+          fadeInFrames: 20,
+          fadeOutFrames: 10,
+          exportRole: 'platform-overlay' as const,
+          params: {},
+          layoutByAspect: {
+            '9:16': {
+              anchor: { kind: 'element' as const, elementId: 'intro-title' },
+              inset: { top: 0, right: 0, bottom: 0, left: 0 },
+            },
+          },
+        },
+      ],
+      elementMap: {
+        'intro-title': {
+          rectsByAspect: {
+            '9:16': { x: 420, y: 240, width: 320, height: 100 },
+          },
+        },
+      },
+    }
+
+    render(<CourseComposition project={pointingProject} aspectRatio="9:16" />)
+
+    const overlay = screen.getByTestId('action-overlay-point-to-title')
+    expect(overlay).toHaveAttribute('data-layout-anchor', 'element')
+    expect(overlay).toHaveAttribute('data-action-template-id', 'pointing-arrow')
+    expect(overlay).toHaveStyle({ opacity: '0.6' })
+    expect(overlay.style.border).toBe('0px')
+    expect(screen.getByTestId('pointing-arrow-visual')).toHaveAttribute('data-arrow-shape', 'curve')
+    expect(screen.getByTestId('pointing-arrow-path')).toBeInTheDocument()
+  })
 })
 
 describe('RemotionRoot', () => {
@@ -240,7 +292,7 @@ describe('RemotionRoot', () => {
 })
 
 describe('CoursePreviewStage', () => {
-  it('uses Player as the media clock and keeps editor overlays outside the composition', () => {
+  it('uses native media with Player reserved for overlays and keeps editor controls outside the composition', () => {
     const state = createDefaultCourseWorkbenchState()
     const dispatch = vi.fn()
 
@@ -260,7 +312,7 @@ describe('CoursePreviewStage', () => {
 
     expect(screen.getByTestId('mock-remotion-player')).toBeInTheDocument()
     expect(screen.queryByTestId('background-preview-video')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('foreground-preview-video')).not.toBeInTheDocument()
+    expect(screen.getByTestId('foreground-video')).toHaveAttribute('data-preview-native', 'true')
     expect(screen.getByTestId('foreground-resize-handle').closest('.course-composition')).toBeNull()
 
     emitPlayerFrame?.(42)

@@ -27,7 +27,7 @@
     "react-dom": "^19.2.7",
     "remotion": "^4.0.487",
     "three": "^0.185.1",
-    "zod": "^4.4.3"
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@remotion/cli": "^4.0.487",

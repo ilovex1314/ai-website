@@ -5,6 +5,11 @@ import type { CSSProperties, PointerEvent } from 'react'
 import { migrateLegacyWorkbenchState } from './domain/courseProjectMigration'
 import type { CourseProjectV2 } from './domain/courseProjectSchema'
 import {
+  absoluteActionRange,
+  animationOpacity,
+  isAnimationActive,
+} from './domain/animationTiming'
+import {
   compositionDimensions,
   CourseComposition,
 } from './remotion/CourseComposition'
@@ -84,8 +89,8 @@ function clampPercent(value: number, min = 0, max = 100) {
   return Math.min(Math.max(Math.round(value), min), max)
 }
 
-function actionPhase(ref: AnimationActionRef, absoluteFrame: number, segmentFrom: number) {
-  const relativeFrame = absoluteFrame - segmentFrom - ref.from
+function actionPhase(ref: AnimationActionRef, absoluteFrame: number, absoluteFrom: number) {
+  const relativeFrame = absoluteFrame - absoluteFrom
   const fadeInFrames = ref.fadeInFrames ?? 0
   const fadeOutFrames = ref.fadeOutFrames ?? 0
 
@@ -108,7 +113,7 @@ function isPlatformOverlay(ref: AnimationActionRef) {
   )
 }
 
-function buildCompositionProject(
+export function buildCompositionProject(
   stage: CourseStage,
   timeline: TimelineSegment[],
   actions: AnimationAction[],
@@ -237,10 +242,14 @@ export function CoursePreviewStage({
     () => buildCompositionProject(stage, timeline, actions, fps, playback.totalFrames),
     [actions, fps, playback.totalFrames, stage, timeline],
   )
+  const playerInputProps = useMemo(
+    () => ({ project: compositionProject, aspectRatio: stage.canvasAspectRatio, interactive: true }),
+    [compositionProject, stage.canvasAspectRatio],
+  )
   const activeActionEntries = timeline.flatMap((timelineSegment): ActiveActionEntry[] =>
     timelineSegment.actionRefs.flatMap((ref) => {
-      const absoluteFrom = timelineSegment.from + ref.from
-      const active = playback.currentFrame >= absoluteFrom && playback.currentFrame < absoluteFrom + ref.duration
+      const { fromFrame: absoluteFrom, durationFrames } = absoluteActionRange(timelineSegment, ref)
+      const active = isAnimationActive(playback.currentFrame, absoluteFrom, durationFrames)
       const libraryAction = actions.find((candidate) => candidate.id === ref.actionId)
 
       if (!active || !libraryAction || !isPlatformOverlay(ref)) {
@@ -251,13 +260,21 @@ export function CoursePreviewStage({
         ref,
         action: libraryAction,
         absoluteFrom,
-        phase: actionPhase(ref, playback.currentFrame, timelineSegment.from),
+        phase: actionPhase(ref, playback.currentFrame, absoluteFrom),
       }]
     }),
   )
   const currentAction = activeActionEntries[0]?.action
   const foregroundIsVisible =
     playback.currentFrame < Math.min(stage.foregroundSource.durationFrames, playback.totalFrames)
+  const syncPlaybackFrame = useCallback((nextFrame: number) => {
+    const frame = clampPercent(nextFrame, 0, playback.totalFrames)
+
+    if (frame !== lastDispatchedFrameRef.current) {
+      lastDispatchedFrameRef.current = frame
+      dispatch({ type: 'seek-frame', frame })
+    }
+  }, [dispatch, playback.totalFrames])
 
   useLayoutEffect(() => {
     const player = playerRef.current
@@ -267,26 +284,62 @@ export function CoursePreviewStage({
     }
 
     const onFrameUpdate: CallbackListener<'frameupdate'> = ({ detail }) => {
-      const frame = clampPercent(detail.frame, 0, playback.totalFrames)
-
-      if (frame !== lastDispatchedFrameRef.current) {
-        lastDispatchedFrameRef.current = frame
-        dispatch({ type: 'seek-frame', frame })
-      }
+      syncPlaybackFrame(detail.frame)
     }
-    const onPlay: CallbackListener<'play'> = () => dispatch({ type: 'set-playing', isPlaying: true })
-    const onPause: CallbackListener<'pause'> = () => dispatch({ type: 'set-playing', isPlaying: false })
+    const frameSyncInterval = window.setInterval(
+      () => {
+        const backgroundVideo = previewMediaFrameRef.current
+          ?.querySelector<HTMLVideoElement>('[data-testid="background-video"]')
+        const mediaFrame = backgroundVideo && Number.isFinite(backgroundVideo.currentTime)
+          ? backgroundVideo.currentTime * fps
+          : player.getCurrentFrame()
+
+        if (backgroundVideo) {
+          const targetFrame = clampPercent(mediaFrame, 0, playback.totalFrames - 1)
+          if (Math.abs(player.getCurrentFrame() - targetFrame) >= 1) {
+            player.seekTo(targetFrame)
+          }
+
+          const foregroundVideo = previewMediaFrameRef.current
+            ?.querySelector<HTMLVideoElement>('[data-testid="foreground-video"]')
+          if (foregroundVideo && targetFrame < stage.foregroundSource.durationFrames) {
+            if (Math.abs(foregroundVideo.currentTime - backgroundVideo.currentTime) > 0.12) {
+              foregroundVideo.currentTime = backgroundVideo.currentTime
+            }
+            if (!backgroundVideo.paused && foregroundVideo.paused) {
+              void foregroundVideo.play().catch(() => undefined)
+            } else if (backgroundVideo.paused && !foregroundVideo.paused) {
+              foregroundVideo.pause()
+            }
+          }
+        }
+
+        syncPlaybackFrame(mediaFrame)
+      },
+      Math.max(16, Math.round(1000 / fps)),
+    )
 
     player.addEventListener('frameupdate', onFrameUpdate)
-    player.addEventListener('play', onPlay)
-    player.addEventListener('pause', onPause)
 
     return () => {
+      window.clearInterval(frameSyncInterval)
       player.removeEventListener('frameupdate', onFrameUpdate)
-      player.removeEventListener('play', onPlay)
-      player.removeEventListener('pause', onPause)
     }
-  }, [dispatch, playback.totalFrames])
+  }, [fps, playback.totalFrames, stage.foregroundSource.durationFrames, syncPlaybackFrame])
+
+  useEffect(() => {
+    const backgroundVideo = previewMediaFrameRef.current
+      ?.querySelector<HTMLVideoElement>('[data-testid="background-video"]')
+
+    if (!backgroundVideo) {
+      return
+    }
+
+    const onTimeUpdate = () => syncPlaybackFrame(backgroundVideo.currentTime * fps)
+    backgroundVideo.addEventListener('timeupdate', onTimeUpdate)
+
+    return () => backgroundVideo.removeEventListener('timeupdate', onTimeUpdate)
+  }, [fps, stage.backgroundSource.localPreviewUrl, syncPlaybackFrame])
 
   useLayoutEffect(() => {
     const mediaFrame = previewMediaFrameRef.current
@@ -321,20 +374,31 @@ export function CoursePreviewStage({
   useEffect(() => {
     const player = playerRef.current
 
-    if (!player || player.getCurrentFrame() === playback.currentFrame) {
+    if (
+      !player ||
+      lastDispatchedFrameRef.current === playback.currentFrame ||
+      player.getCurrentFrame() === playback.currentFrame
+    ) {
       return
     }
 
     lastDispatchedFrameRef.current = playback.currentFrame
     player.seekTo(playback.currentFrame)
-  }, [playback.currentFrame])
+    const mediaTime = playback.currentFrame / fps
+    previewMediaFrameRef.current?.querySelectorAll<HTMLMediaElement>('video, audio').forEach((media) => {
+      media.currentTime = mediaTime
+    })
+  }, [fps, playback.currentFrame])
 
   const seekPlayer = useCallback((frame: number) => {
     const nextFrame = clampPercent(frame, 0, playback.totalFrames)
     lastDispatchedFrameRef.current = nextFrame
     playerRef.current?.seekTo(nextFrame)
+    previewMediaFrameRef.current?.querySelectorAll<HTMLMediaElement>('video, audio').forEach((media) => {
+      media.currentTime = nextFrame / fps
+    })
     dispatch({ type: 'seek-frame', frame: nextFrame })
-  }, [dispatch, playback.totalFrames])
+  }, [dispatch, fps, playback.totalFrames])
 
   const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
     if (!dragState) {
@@ -426,7 +490,13 @@ export function CoursePreviewStage({
 
     const selectionStyle = {
       ...resolved.style,
-      opacity: entry.phase === 'enter' ? 0.72 : entry.phase === 'exit' ? 0.58 : 1,
+      opacity: animationOpacity(
+        playback.currentFrame,
+        entry.absoluteFrom,
+        entry.ref.duration,
+        entry.ref.fadeInFrames,
+        entry.ref.fadeOutFrames,
+      ),
     }
 
     return (
@@ -501,7 +571,11 @@ export function CoursePreviewStage({
   }
 
   return (
-    <section className="course-card course-card--preview">
+    <section
+      className="course-card course-card--preview"
+      data-layout-mode={stage.canvasAspectRatio === '9:16' ? 'portrait-review' : 'standard-review'}
+      data-testid="course-preview-stage"
+    >
       <div className="course-card__header">
         <p>Review Stage</p>
         <span>slide {segment.slide} · {segment.speaker}</span>
@@ -525,13 +599,41 @@ export function CoursePreviewStage({
         </label>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            const mediaElements = previewMediaFrameRef.current
+              ?.querySelectorAll<HTMLMediaElement>('video, audio') ?? []
+
             if (playback.isPlaying) {
-              playerRef.current?.pause()
+              mediaElements.forEach((media) => media.pause())
+              dispatch({ type: 'set-playing', isPlaying: false })
             } else {
-              playerRef.current?.play()
+              const mediaTime = playback.currentFrame / fps
+              const orderedMedia = Array.from(mediaElements).sort((left, right) =>
+                Number(left.muted) - Number(right.muted),
+              )
+              orderedMedia.forEach((media) => {
+                if (Math.abs(media.currentTime - mediaTime) > 0.1) {
+                  media.currentTime = mediaTime
+                }
+              })
+              const foregroundVideo = previewMediaFrameRef.current
+                ?.querySelector<HTMLVideoElement>('[data-testid="foreground-video"]')
+              const stateDriver = foregroundVideo ?? orderedMedia[0]
+              orderedMedia.forEach((media) => {
+                const started = media.play() as Promise<void> | undefined
+                if (media === stateDriver) {
+                  if (started === undefined) {
+                    dispatch({ type: 'set-playing', isPlaying: true })
+                  } else {
+                    void started
+                      .then(() => dispatch({ type: 'set-playing', isPlaying: true }))
+                      .catch(() => orderedMedia.forEach((candidate) => candidate.pause()))
+                  }
+                } else {
+                  void started?.catch(() => undefined)
+                }
+              })
             }
-            dispatch({ type: 'set-playing', isPlaying: !playback.isPlaying })
           }}
         >
           {playback.isPlaying ? '暂停' : '播放'}
@@ -580,6 +682,40 @@ export function CoursePreviewStage({
           data-source-aspect-ratio={stage.backgroundSource.sourceAspectRatio}
           ref={previewMediaFrameRef}
         >
+          {stage.backgroundSource.localPreviewUrl ? (
+            <video
+              className="course-composition__background preview-background-video"
+              data-muted="true"
+              data-preview-native="true"
+              data-testid="background-video"
+              data-volume="0"
+              muted
+              preload="auto"
+              playsInline
+              src={stage.backgroundSource.localPreviewUrl}
+            />
+          ) : null}
+          {foregroundIsVisible && stage.foregroundSource.localPreviewUrl ? (
+            <div
+              className="preview-speaker preview-speaker--native"
+              data-shape={stage.foregroundWindow.shape}
+              data-testid="foreground-window"
+              style={resolveForegroundWindowStyle(stage.foregroundWindow)}
+            >
+              <video
+                className="preview-speaker__video"
+                data-audio-policy="primary"
+                data-preview-native="true"
+                data-testid="foreground-video"
+                data-muted={playback.isPlaying ? 'false' : 'true'}
+                data-volume={playback.isPlaying ? '1' : '0'}
+                muted={!playback.isPlaying}
+                preload="auto"
+                playsInline
+                src={stage.foregroundSource.localPreviewUrl}
+              />
+            </div>
+          ) : null}
           <div className="preview-player-shell" data-testid="course-remotion-player">
             <Player
               acknowledgeRemotionLicense
@@ -589,8 +725,10 @@ export function CoursePreviewStage({
               controls={false}
               durationInFrames={playback.totalFrames}
               fps={fps}
-              initialFrame={playback.currentFrame}
-              inputProps={{ project: compositionProject, aspectRatio: stage.canvasAspectRatio, interactive: true }}
+              initialFrame={mode === 'export' ? playback.currentFrame : 0}
+              initiallyMuted={false}
+              initialVolume={1}
+              inputProps={playerInputProps}
               ref={playerRef}
               style={{ width: '100%', height: '100%' }}
             />
@@ -677,7 +815,7 @@ export function CoursePreviewStage({
           ) : null}
         </div>
       </div>
-      {selectedElement ? <p className="preview-hint">已选元素：{selectedElement.label}</p> : null}
+      {selectedElement ? <p className="preview-hint preview-hint--selection">已选元素：{selectedElement.label}</p> : null}
       <div className="action-time-ruler" data-testid="action-time-ruler">
         <span
           className="action-time-ruler__playhead"
@@ -714,7 +852,7 @@ export function CoursePreviewStage({
           }),
         )}
       </div>
-      <p className="preview-hint">拖动画面中的标注可更新当前动作的 X/Y 参数。本地后续可把修改请求交给 Codex。</p>
+      <p className="preview-hint preview-hint--footer">拖动画面中的标注可更新当前动作的 X/Y 参数。本地后续可把修改请求交给 Codex。</p>
     </section>
   )
 }

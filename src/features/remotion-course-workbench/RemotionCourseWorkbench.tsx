@@ -2,7 +2,7 @@ import { useMemo, useReducer, useState } from 'react'
 import { CodexHandoffPanel } from './CodexHandoffPanel'
 import { CourseActionEditor } from './CourseActionEditor'
 import { CourseAnimationLibraryPanel } from './CourseAnimationLibraryPanel'
-import { CourseProjectIntake } from './CourseProjectIntake'
+import { CourseProjectIntake, type IntakeState } from './CourseProjectIntake'
 import { createDefaultCourseWorkbenchState } from './courseWorkbenchData'
 import {
   buildCapCutHandoffPackage,
@@ -10,10 +10,15 @@ import {
   courseWorkbenchReducer,
 } from './courseWorkbenchReducer'
 import { CourseExportPanel } from './CourseExportPanel'
-import { CoursePreviewStage } from './CoursePreviewStage'
+import { buildCompositionProject, CoursePreviewStage } from './CoursePreviewStage'
 import { CourseTimelinePanel } from './CourseTimelinePanel'
+import { PointingArrowEditor } from './PointingArrowEditor'
+import { absoluteActionRange, relativeFrameForSegment } from './domain/animationTiming'
+import { WorkbenchClient } from './api/workbenchClient'
 import type { AnimationAction, AnimationActionRef, TimelineSegment } from './workbenchTypes'
 import './RemotionCourseWorkbench.css'
+
+const shouldAutoImportLocalProject = import.meta.env.DEV && import.meta.env.MODE !== 'test'
 
 type ElementActionRefEntry = {
   segment: TimelineSegment
@@ -24,12 +29,19 @@ function actionParamLabel(action?: AnimationAction) {
   return action?.params.label ?? action?.params.text ?? action?.params.title ?? ''
 }
 
-function bindingFrameRange(ref: AnimationActionRef) {
-  return `${ref.from}f - ${ref.from + ref.duration}f`
+function bindingFrameRange(segment: TimelineSegment, ref: AnimationActionRef) {
+  const range = absoluteActionRange(segment, ref)
+  return `${range.fromFrame}f - ${range.toFrame}f`
 }
 
 export function RemotionCourseWorkbench() {
   const [state, dispatch] = useReducer(courseWorkbenchReducer, undefined, createDefaultCourseWorkbenchState)
+  const workbenchClient = useMemo(() => new WorkbenchClient(), [])
+  const [intakeState, setIntakeState] = useState<IntakeState>(
+    shouldAutoImportLocalProject ? 'scanning' : 'idle',
+  )
+  const [overrideStatus, setOverrideStatus] = useState<'idle' | 'rendering' | 'ready' | 'error'>('idle')
+  const [overrideError, setOverrideError] = useState<string>()
   const [bindingDraft, setBindingDraft] = useState<{
     elementId?: string
     from?: number
@@ -60,6 +72,12 @@ export function RemotionCourseWorkbench() {
         : [],
     [selectedElement, state.timeline],
   )
+  const elementHyperframesAnimations = useMemo(
+    () => selectedElement
+      ? state.detectedHyperframesAnimations.filter((animation) => animation.elementId === selectedElement.id)
+      : [],
+    [selectedElement, state.detectedHyperframesAnimations],
+  )
   const selectedActionRefEntry = useMemo(
     () =>
       elementActionRefs.find((entry) => entry.ref.id === state.selectedActionRefId)
@@ -72,13 +90,31 @@ export function RemotionCourseWorkbench() {
       ?? selectedAction,
     [selectedAction, selectedActionRefEntry?.ref.actionId, state.actions],
   )
-  const selectedRefLabel = actionParamLabel(selectedRefAction)
+  const selectedRefActionWithInstanceParams = useMemo(
+    () => ({
+      ...selectedRefAction,
+      params: { ...selectedRefAction.params, ...selectedActionRefEntry?.ref.params },
+    }),
+    [selectedActionRefEntry?.ref.params, selectedRefAction],
+  )
+  const selectedRefLabel = actionParamLabel(selectedRefActionWithInstanceParams)
   const elementBindingDraft = bindingDraft.elementId === selectedElement?.id ? bindingDraft : {}
-  const defaultBindingFrom = Math.max(state.playback.currentFrame - selectedSegment.from, 0)
+  const defaultBindingFrom = state.playback.currentFrame
   const defaultBindingDuration = selectedAction.defaultDurationFrames
   const latestRequest = state.handoffRequests[0]
   const assemblyManifest = useMemo(() => buildCourseAssemblyManifest(state), [state])
   const capcutPackage = useMemo(() => buildCapCutHandoffPackage(state), [state])
+  const hasCurrentProjectStructure = !shouldAutoImportLocalProject || intakeState === 'ready'
+  const renderProject = useMemo(
+    () => buildCompositionProject(
+      state.stage,
+      state.timeline,
+      state.actions,
+      state.project.fps,
+      state.playback.totalFrames,
+    ),
+    [state.actions, state.playback.totalFrames, state.project.fps, state.stage, state.timeline],
+  )
 
   return (
     <main className="course-workbench">
@@ -110,6 +146,7 @@ export function RemotionCourseWorkbench() {
             foregroundPath={state.stage.foregroundSource.path}
             backgroundAudioPolicy={state.stage.backgroundSource.audioPolicy}
             foregroundAudioPolicy={state.stage.foregroundSource.audioPolicy}
+            autoImport={shouldAutoImportLocalProject}
             structure={{
               scenes: state.stage.backgroundSource.structureStatus.scenesParsed,
               elements: state.stage.backgroundSource.structureStatus.elementsParsed,
@@ -117,6 +154,7 @@ export function RemotionCourseWorkbench() {
               missingActions: state.stage.backgroundSource.structureStatus.missingActionsCreated,
             }}
             onReady={(result) => dispatch({ type: 'hydrate-hyperframes-import', payload: result })}
+            onStateChange={setIntakeState}
             onForegroundReady={(result, file) => dispatch({
               type: 'hydrate-foreground-upload',
               payload: {
@@ -127,25 +165,47 @@ export function RemotionCourseWorkbench() {
               },
             })}
           />
-          <CourseTimelinePanel
-            timeline={state.timeline}
-            actions={state.actions}
-            selectedSegmentId={state.selectedSegmentId}
-            dispatch={dispatch}
-          />
+          {hasCurrentProjectStructure ? (
+            <CourseTimelinePanel
+              timeline={state.timeline}
+              actions={state.actions}
+              selectedSegmentId={state.selectedSegmentId}
+              dispatch={dispatch}
+            />
+          ) : (
+            <section className="course-card" data-testid="course-structure-loading">
+              <div className="course-card__header">
+                <p>Timeline</p>
+                <span>loading</span>
+              </div>
+              <h2>正在载入结构化项目</h2>
+              <p>读取场景、元素位置和 HyperFrames 内置动画…</p>
+            </section>
+          )}
         </aside>
         <section className="course-workbench__main-stage">
-          <CoursePreviewStage
-            action={selectedAction}
-            segment={selectedSegment}
-            stage={state.stage}
-            playback={state.playback}
-            timeline={state.timeline}
-            actions={state.actions}
-            selectedElementId={state.selectedElementId}
-            fps={state.project.fps}
-            dispatch={dispatch}
-          />
+          {hasCurrentProjectStructure ? (
+            <CoursePreviewStage
+              action={selectedAction}
+              segment={selectedSegment}
+              stage={state.stage}
+              playback={state.playback}
+              timeline={state.timeline}
+              actions={state.actions}
+              selectedElementId={state.selectedElementId}
+              fps={state.project.fps}
+              dispatch={dispatch}
+            />
+          ) : (
+            <section className="course-card course-preview-loading" data-testid="course-preview-loading">
+              <div className="course-card__header">
+                <p>Review Stage</p>
+                <span>manifest-first</span>
+              </div>
+              <h2>正在准备 Review 画布</h2>
+              <p>导入完成后再展示元素框，避免旧 mock 位置覆盖新视频。</p>
+            </section>
+          )}
           <CourseAnimationLibraryPanel
             actions={state.actions}
             selectedActionId={state.selectedActionId}
@@ -167,12 +227,164 @@ export function RemotionCourseWorkbench() {
                   <span>selector: {selectedElement.selector}</span>
                   <span>compositionId: {selectedElement.compositionId}</span>
                 </div>
+                <section className="element-hyperframes-animations" data-testid="hyperframes-element-animations">
+                  <div className="element-binding-panel__title">
+                    <strong>HyperFrames 内置动画</strong>
+                    <span>{elementHyperframesAnimations.length} 个</span>
+                  </div>
+                  <div className="element-hyperframes-override-actions">
+                    <button
+                      className="course-button course-button--primary"
+                      type="button"
+                      disabled={
+                        Object.keys(state.hyperframesAnimationOverrides).length === 0
+                        || overrideStatus === 'rendering'
+                      }
+                      onClick={async () => {
+                        setOverrideStatus('rendering')
+                        setOverrideError(undefined)
+                        try {
+                          const result = await workbenchClient.saveHyperframesOverrides(state.project.id, {
+                            sourcePath: state.stage.backgroundSource.projectPath,
+                            fps: state.project.fps,
+                            overrides: Object.values(state.hyperframesAnimationOverrides),
+                            renderPreview: true,
+                          })
+                          if (result.mediaUrl) {
+                            dispatch({ type: 'set-background-preview', mediaUrl: result.mediaUrl })
+                          }
+                          setOverrideStatus('ready')
+                        } catch (error) {
+                          setOverrideStatus('error')
+                          setOverrideError(error instanceof Error ? error.message : '后台预览重建失败')
+                        }
+                      }}
+                    >
+                      {overrideStatus === 'rendering' ? '正在重建后台…' : '应用修改并重建后台'}
+                    </button>
+                    {overrideStatus === 'ready' ? <span>后台预览已更新</span> : null}
+                    {overrideError ? <span className="element-animation-conflict">{overrideError}</span> : null}
+                  </div>
+                  {elementHyperframesAnimations.length > 0 ? (
+                    <div className="element-binding-list">
+                      {elementHyperframesAnimations.map((animation) => {
+                        const override = state.hyperframesAnimationOverrides[animation.id]
+                        const disabled = override?.operation === 'disable'
+                        const modified = override?.operation === 'modify'
+                        const fromFrame = modified ? override.fromFrame ?? animation.from : animation.from
+                        const durationFrames = modified
+                          ? override.durationFrames ?? animation.duration
+                          : animation.duration
+                        const ease = modified ? override.ease ?? animation.ease ?? '' : animation.ease ?? ''
+
+                        return (
+                          <div
+                            className={`element-binding-item element-binding-item--hyperframes${disabled ? ' is-disabled' : ''}`}
+                            data-animation-id={animation.id}
+                            key={animation.id}
+                          >
+                            <strong>{animation.label}</strong>
+                            <span>{animation.actionSignature} · {fromFrame}f - {fromFrame + durationFrames}f</span>
+                            <small>{animation.properties.join(' / ')} · {ease || 'default ease'}</small>
+                            <span className="element-animation-status">
+                              {disabled ? '已停用' : modified ? '已修改' : '原始'}
+                            </span>
+                            {disabled ? (
+                              <button
+                                className="course-button"
+                                type="button"
+                                aria-label="恢复原始动画"
+                                onClick={() => dispatch({ type: 'restore-hyperframes-animation', id: animation.id })}
+                              >
+                                恢复原始
+                              </button>
+                            ) : (
+                              <>
+                                <div className="editor-grid element-hyperframes-animation-editor">
+                                  <label>
+                                    起点
+                                    <input
+                                      type="number"
+                                      value={fromFrame}
+                                      onChange={(event) => dispatch({
+                                        type: 'modify-hyperframes-animation',
+                                        id: animation.id,
+                                        patch: {
+                                          fromFrame: Number(event.target.value),
+                                          durationFrames,
+                                          ease,
+                                        },
+                                      })}
+                                    />
+                                  </label>
+                                  <label>
+                                    时长
+                                    <input
+                                      type="number"
+                                      value={durationFrames}
+                                      onChange={(event) => dispatch({
+                                        type: 'modify-hyperframes-animation',
+                                        id: animation.id,
+                                        patch: {
+                                          fromFrame,
+                                          durationFrames: Number(event.target.value),
+                                          ease,
+                                        },
+                                      })}
+                                    />
+                                  </label>
+                                  <label className="editor-grid__wide">
+                                    缓动
+                                    <input
+                                      type="text"
+                                      value={ease}
+                                      onChange={(event) => dispatch({
+                                        type: 'modify-hyperframes-animation',
+                                        id: animation.id,
+                                        patch: { fromFrame, durationFrames, ease: event.target.value },
+                                      })}
+                                    />
+                                  </label>
+                                </div>
+                                <div className="element-binding-actions">
+                                  {modified ? (
+                                    <button
+                                      className="course-button"
+                                      type="button"
+                                      aria-label="恢复原始动画"
+                                      onClick={() => dispatch({ type: 'restore-hyperframes-animation', id: animation.id })}
+                                    >
+                                      恢复原始
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    className="course-button course-button--danger"
+                                    type="button"
+                                    aria-label="停用 HyperFrames 动画"
+                                    onClick={() => dispatch({ type: 'disable-hyperframes-animation', id: animation.id })}
+                                  >
+                                    停用动画
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="preview-hint">该元素没有可归属的 HyperFrames 动画。</p>
+                  )}
+                </section>
                 <div className="element-binding-panel" data-testid="dom-animation-binding-panel">
                   <div className="element-binding-panel__title">
-                    <strong>DOM 绑定动画</strong>
+                    <strong>平台新增动画</strong>
                     <span>{elementActionRefs.length > 0 ? '已绑定动画' : '尚未绑定动画'}</span>
                   </div>
                   <p className="preview-hint">这里管理平台覆盖动画；HyperFrames 内置动画已烘焙在后台视频中。</p>
+                  {state.animationConflict ? (
+                    <p className="element-animation-conflict" role="alert">{state.animationConflict}</p>
+                  ) : null}
                   {elementActionRefs.length > 0 ? (
                     <div className="element-binding-list" data-testid="element-binding-list">
                       {elementActionRefs.map(({ segment, ref }) => {
@@ -188,7 +400,7 @@ export function RemotionCourseWorkbench() {
                             <strong>{ref.actionId}</strong>
                             <span>{refAction?.name ?? ref.actionId}</span>
                             <span>
-                              {bindingFrameRange(ref)} · {ref.duration}f
+                              {bindingFrameRange(segment, ref)} · {ref.duration}f
                             </span>
                             <small>
                               平台覆盖动画 · color {refAction?.params.color ?? 'n/a'} · label{' '}
@@ -230,11 +442,18 @@ export function RemotionCourseWorkbench() {
                       绑定起点
                       <input
                         type="number"
-                        value={selectedActionRefEntry?.ref.from ?? elementBindingDraft.from ?? defaultBindingFrom}
+                        value={
+                          selectedActionRefEntry
+                            ? absoluteActionRange(selectedActionRefEntry.segment, selectedActionRefEntry.ref).fromFrame
+                            : elementBindingDraft.from ?? defaultBindingFrom
+                        }
                         onChange={(event) => {
                           const from = Number(event.target.value)
                           if (selectedActionRefEntry?.ref.id) {
-                            dispatch({ type: 'update-selected-action-ref', patch: { from } })
+                            dispatch({
+                              type: 'update-selected-action-ref',
+                              patch: { from: relativeFrameForSegment(selectedActionRefEntry.segment, from) },
+                            })
                           } else {
                             setBindingDraft((current) => ({ ...current, elementId: selectedElement?.id, from }))
                           }
@@ -294,14 +513,18 @@ export function RemotionCourseWorkbench() {
                       绑定颜色
                       <input
                         type="color"
-                        value={selectedRefAction.params.color ?? '#2563eb'}
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'update-action',
-                            id: selectedRefAction.id,
-                            patch: { params: { color: event.target.value } },
-                          })
-                        }
+                        value={selectedRefActionWithInstanceParams.params.color ?? '#2563eb'}
+                        onChange={(event) => {
+                          const color = event.target.value
+                          if (selectedActionRefEntry?.ref.id) {
+                            dispatch({
+                              type: 'update-selected-action-ref',
+                              patch: { params: { ...selectedActionRefEntry.ref.params, color } },
+                            })
+                          } else {
+                            dispatch({ type: 'update-action', id: selectedRefAction.id, patch: { params: { color } } })
+                          }
+                        }}
                       />
                     </label>
                     <label className="editor-grid__wide">
@@ -309,23 +532,53 @@ export function RemotionCourseWorkbench() {
                       <input
                         type="text"
                         value={selectedRefLabel}
-                        onChange={(event) =>
-                          dispatch({
-                            type: 'update-action',
-                            id: selectedRefAction.id,
-                            patch: { params: { label: event.target.value } },
-                          })
-                        }
+                        onChange={(event) => {
+                          const label = event.target.value
+                          if (selectedActionRefEntry?.ref.id) {
+                            dispatch({
+                              type: 'update-selected-action-ref',
+                              patch: { params: { ...selectedActionRefEntry.ref.params, label } },
+                            })
+                          } else {
+                            dispatch({ type: 'update-action', id: selectedRefAction.id, patch: { params: { label } } })
+                          }
+                        }}
                       />
                     </label>
                   </div>
+                  <PointingArrowEditor
+                    action={selectedRefActionWithInstanceParams}
+                    onChange={(params) => {
+                      if (selectedActionRefEntry?.ref.id) {
+                        dispatch({
+                          type: 'update-selected-action-ref',
+                          patch: { params: { ...selectedActionRefEntry.ref.params, ...params } },
+                        })
+                      } else {
+                        dispatch({ type: 'update-action', id: selectedRefAction.id, patch: { params } })
+                      }
+                    }}
+                  />
                   <div className="element-binding-actions">
+                    <button
+                      className="course-button"
+                      type="button"
+                      onClick={() => {
+                        dispatch({ type: 'start-new-element-binding' })
+                        setBindingDraft({ elementId: selectedElement.id, from: state.playback.currentFrame })
+                      }}
+                    >
+                      新增平台动画
+                    </button>
                     <button
                       className="course-button course-button--primary"
                       type="button"
                       onClick={() => dispatch({
                         type: 'bind-selected-action-to-element',
-                        from: elementBindingDraft.from ?? defaultBindingFrom,
+                        from: relativeFrameForSegment(
+                          selectedSegment,
+                          elementBindingDraft.from ?? defaultBindingFrom,
+                        ),
                         duration: elementBindingDraft.duration ?? defaultBindingDuration,
                         fadeInFrames: elementBindingDraft.fadeInFrames ?? 0,
                         fadeOutFrames: elementBindingDraft.fadeOutFrames ?? 0,
@@ -444,13 +697,17 @@ export function RemotionCourseWorkbench() {
               </label>
             </div>
           </section>
-          <CourseActionEditor action={selectedAction} dispatch={dispatch} />
+          <CourseActionEditor action={selectedAction} dispatch={dispatch} showPointingEditor={!selectedElement} />
           <CodexHandoffPanel reviewNote={state.reviewNote} latestRequest={latestRequest} dispatch={dispatch} />
         </aside>
       </section>
 
       <section className="course-workbench__exports" aria-label="课程工程和剪映交付包">
-        <CourseExportPanel assemblyManifest={assemblyManifest} capcutPackage={capcutPackage} />
+        <CourseExportPanel
+          assemblyManifest={assemblyManifest}
+          capcutPackage={capcutPackage}
+          project={renderProject}
+        />
       </section>
     </main>
   )

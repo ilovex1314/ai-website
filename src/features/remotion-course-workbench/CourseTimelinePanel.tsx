@@ -27,7 +27,7 @@ export function CourseTimelinePanel({
             key={segment.id}
             type="button"
             aria-pressed={segment.id === selectedSegmentId}
-            onClick={() => dispatch({ type: 'select-segment', id: segment.id })}
+            onClick={() => dispatch({ type: 'seek-frame', frame: segment.from })}
           >
             <span className="timeline-item__title">{segment.title}</span>
             <span>

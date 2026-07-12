@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 1,
+  "fps": 30,
+  "durationInFrames": 3300,
+  "scenes": [
+    {
+      "id": "scene-result",
+      "fromFrame": 0,
+      "durationFrames": 420
+    },
+    {
+      "id": "scene-product-model",
+      "fromFrame": 420,
+      "durationFrames": 450
+    },
+    {
+      "id": "scene-workflow",
+      "fromFrame": 870,
+      "durationFrames": 450
+    },
+    {
+      "id": "scene-editor",
+      "fromFrame": 1320,
+      "durationFrames": 480
+    },
+    {
+      "id": "scene-manifest",
+      "fromFrame": 1800,
+      "durationFrames": 510
+    },
+    {
+      "id": "scene-edit-model",
+      "fromFrame": 2310,
+      "durationFrames": 510
+    },
+    {
+      "id": "scene-output",
+      "fromFrame": 2820,
+      "durationFrames": 480
+    }
+  ],
+  "animations": [
+    {
+      "id": "result-eyebrow-enter",
+      "sceneId": "scene-result",
+      "targetElementId": "result-eyebrow",
+      "fromFrame": 5,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "result-title-enter",
+      "sceneId": "scene-result",
+      "targetElementId": "result-title",
+      "fromFrame": 10,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "result-preview-enter",
+      "sceneId": "scene-result",
+      "targetElementId": "result-preview",
+      "fromFrame": 25,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "result-note-enter",
+      "sceneId": "scene-result",
+      "targetElementId": "result-note",
+      "fromFrame": 31,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "model-eyebrow-enter",
+      "sceneId": "scene-product-model",
+      "targetElementId": "model-eyebrow",
+      "fromFrame": 425,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "model-title-enter",
+      "sceneId": "scene-product-model",
+      "targetElementId": "model-title",
+      "fromFrame": 430,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "model-architecture-enter",
+      "sceneId": "scene-product-model",
+      "targetElementId": "model-architecture",
+      "fromFrame": 445,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "model-note-enter",
+      "sceneId": "scene-product-model",
+      "targetElementId": "model-note",
+      "fromFrame": 451,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "workflow-eyebrow-enter",
+      "sceneId": "scene-workflow",
+      "targetElementId": "workflow-eyebrow",
+      "fromFrame": 875,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "workflow-title-enter",
+      "sceneId": "scene-workflow",
+      "targetElementId": "workflow-title",
+      "fromFrame": 880,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "workflow-diagram-enter",
+      "sceneId": "scene-workflow",
+      "targetElementId": "workflow-diagram",
+      "fromFrame": 895,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "workflow-steps-enter",
+      "sceneId": "scene-workflow",
+      "targetElementId": "workflow-steps",
+      "fromFrame": 901,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "editor-eyebrow-enter",
+      "sceneId": "scene-editor",
+      "targetElementId": "editor-eyebrow",
+      "fromFrame": 1325,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "editor-title-enter",
+      "sceneId": "scene-editor",
+      "targetElementId": "editor-title",
+      "fromFrame": 1330,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "editor-workbench-enter",
+      "sceneId": "scene-editor",
+      "targetElementId": "editor-workbench",
+      "fromFrame": 1345,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "editor-action-library-enter",
+      "sceneId": "scene-editor",
+      "targetElementId": "editor-action-library",
+      "fromFrame": 1351,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "editor-steps-enter",
+      "sceneId": "scene-editor",
+      "targetElementId": "editor-steps",
+      "fromFrame": 1357,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "manifest-eyebrow-enter",
+      "sceneId": "scene-manifest",
+      "targetElementId": "manifest-eyebrow",
+      "fromFrame": 1805,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "manifest-title-enter",
+      "sceneId": "scene-manifest",
+      "targetElementId": "manifest-title",
+      "fromFrame": 1810,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "manifest-workbench-enter",
+      "sceneId": "scene-manifest",
+      "targetElementId": "manifest-workbench",
+      "fromFrame": 1825,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "manifest-contract-enter",
+      "sceneId": "scene-manifest",
+      "targetElementId": "manifest-contract",
+      "fromFrame": 1831,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "edit-eyebrow-enter",
+      "sceneId": "scene-edit-model",
+      "targetElementId": "edit-eyebrow",
+      "fromFrame": 2315,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "edit-title-enter",
+      "sceneId": "scene-edit-model",
+      "targetElementId": "edit-title",
+      "fromFrame": 2320,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "edit-model-enter",
+      "sceneId": "scene-edit-model",
+      "targetElementId": "edit-model",
+      "fromFrame": 2335,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "edit-note-enter",
+      "sceneId": "scene-edit-model",
+      "targetElementId": "edit-note",
+      "fromFrame": 2341,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "output-eyebrow-enter",
+      "sceneId": "scene-output",
+      "targetElementId": "output-eyebrow",
+      "fromFrame": 2825,
+      "durationFrames": 14,
+      "kind": "label-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "output-title-enter",
+      "sceneId": "scene-output",
+      "targetElementId": "output-title",
+      "fromFrame": 2830,
+      "durationFrames": 19,
+      "kind": "title-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y"
+      ]
+    },
+    {
+      "id": "output-flow-enter",
+      "sceneId": "scene-output",
+      "targetElementId": "output-flow",
+      "fromFrame": 2845,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "output-note-enter",
+      "sceneId": "scene-output",
+      "targetElementId": "output-note",
+      "fromFrame": 2851,
+      "durationFrames": 20,
+      "kind": "content-enter",
+      "exportRole": "baked-internal",
+      "properties": [
+        "opacity",
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "result-preview-focus",
+      "sceneId": "scene-result",
+      "targetElementId": "result-preview-image",
+      "fromFrame": 42,
+      "durationFrames": 345,
+      "kind": "slow-focus",
+      "exportRole": "baked-internal",
+      "properties": [
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "model-architecture-focus",
+      "sceneId": "scene-product-model",
+      "targetElementId": "model-architecture-image",
+      "fromFrame": 462,
+      "durationFrames": 360,
+      "kind": "slow-focus",
+      "exportRole": "baked-internal",
+      "properties": [
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "workflow-diagram-focus",
+      "sceneId": "scene-workflow",
+      "targetElementId": "workflow-diagram-image",
+      "fromFrame": 912,
+      "durationFrames": 360,
+      "kind": "slow-focus",
+      "exportRole": "baked-internal",
+      "properties": [
+        "transform.y",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "editor-workbench-pan",
+      "sceneId": "scene-editor",
+      "targetElementId": "editor-workbench-image",
+      "fromFrame": 1362,
+      "durationFrames": 375,
+      "kind": "pan-focus",
+      "exportRole": "baked-internal",
+      "properties": [
+        "transform.x",
+        "transform.scale"
+      ]
+    },
+    {
+      "id": "manifest-workbench-focus",
+      "sceneId": "scene-manifest",
+      "targetElementId": "manifest-workbench-image",
+      "fromFrame": 1842,
+      "durationFrames": 405,
+      "kind": "slow-focus",
+      "exportRole": "baked-internal",
+      "properties": [
+        "transform.y",
+        "transform.scale"
+      ]
+    }
+  ]
+}

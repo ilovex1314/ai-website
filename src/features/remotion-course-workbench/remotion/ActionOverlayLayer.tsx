@@ -6,6 +6,9 @@ import type {
   CourseProjectV2,
 } from '../domain/courseProjectSchema'
 import type { CanvasAspectRatio } from '../workbenchTypes'
+import { animationOpacity, isAnimationActive } from '../domain/animationTiming'
+import { PointingArrowVisual } from '../PointingArrowVisual'
+import { resolvePointingArrowGeometry, type PointingArrowGeometry } from '../pointingArrowGeometry'
 
 type NumericParams = Record<string, unknown>
 
@@ -30,6 +33,7 @@ type ResolvedActionOverlay = {
   params: NumericParams
   style: CSSProperties
   anchorKind: 'canvas' | 'element' | 'params'
+  pointingGeometry?: PointingArrowGeometry
 }
 
 type ActionOverlayLayerProps = {
@@ -93,7 +97,7 @@ function layoutStyle(
   aspectRatio: CanvasAspectRatio,
   params: NumericParams,
   template: ActionTemplate,
-): Pick<ResolvedActionOverlay, 'style' | 'anchorKind'> {
+): Pick<ResolvedActionOverlay, 'style' | 'anchorKind' | 'pointingGeometry'> {
   const layout = instance.layoutByAspect[aspectRatio]
 
   if (!layout) {
@@ -116,6 +120,25 @@ function layoutStyle(
 
   if (!target) {
     return { style: parametricRect(params, template), anchorKind: 'element' }
+  }
+
+  if (template.id === 'pointing-arrow') {
+    const pointingGeometry = resolvePointingArrowGeometry(target, {
+      offsetX: numeric(params, 'offsetX', -220) + layout.inset.left - layout.inset.right,
+      offsetY: numeric(params, 'offsetY', 140) + layout.inset.top - layout.inset.bottom,
+      widthDelta: numeric(params, 'widthDelta', 0),
+      heightDelta: numeric(params, 'heightDelta', 0),
+    })
+    return {
+      anchorKind: 'element',
+      pointingGeometry,
+      style: {
+        left: `${pointingGeometry.left}px`,
+        top: `${pointingGeometry.top}px`,
+        width: `${pointingGeometry.width}px`,
+        height: `${pointingGeometry.height}px`,
+      },
+    }
   }
 
   return {
@@ -153,6 +176,7 @@ export function resolveActionOverlay(
     template,
     params,
     anchorKind: layout.anchorKind,
+    pointingGeometry: layout.pointingGeometry,
     style: {
       ...layout.style,
       borderColor: overlayColor,
@@ -162,12 +186,34 @@ export function resolveActionOverlay(
       '--action-color': overlayColor,
       '--action-progress': `${numeric(params, 'progress', 64)}%`,
       '--action-scale': numeric(params, 'scale', 1.12),
+      ...(template.id === 'pointing-arrow' ? {
+        border: '0',
+        background: 'transparent',
+        padding: 0,
+      } : {}),
     } as CSSProperties,
   }
 }
 
 function actionBody(action: ResolvedActionOverlay): ReactNode {
   const label = text(action.params, action.template)
+
+  if (action.template.id === 'pointing-arrow') {
+    const geometry = action.pointingGeometry
+    return (
+      <PointingArrowVisual
+        color={color(action.params)}
+        imageUrl={typeof action.params.arrowImageUrl === 'string' ? action.params.arrowImageUrl : undefined}
+        shape={action.params.arrowShape === 'curve' || action.params.arrowShape === 'elbow' || action.params.arrowShape === 'custom-image'
+          ? action.params.arrowShape
+          : 'straight'}
+        sourceTail={{ x: numeric(action.params, 'arrowTailAnchorX', 0.08), y: numeric(action.params, 'arrowTailAnchorY', 0.5) }}
+        sourceTip={{ x: numeric(action.params, 'arrowTipAnchorX', 0.92), y: numeric(action.params, 'arrowTipAnchorY', 0.5) }}
+        tail={geometry?.tail}
+        tip={geometry?.tip}
+      />
+    )
+  }
 
   switch (action.template.category) {
     case 'progress':
@@ -192,8 +238,7 @@ export function ActionOverlayLayer({ project, aspectRatio }: ActionOverlayLayerP
   const active = project.actionInstances.filter(
     (instance) =>
       instance.exportRole === 'platform-overlay' &&
-      frame >= instance.fromFrame &&
-      frame < instance.fromFrame + instance.durationFrames,
+      isAnimationActive(frame, instance.fromFrame, instance.durationFrames),
   )
 
   return (
@@ -209,10 +254,22 @@ export function ActionOverlayLayer({ project, aspectRatio }: ActionOverlayLayerP
           <div
             className={`preview-action preview-action--${action.template.category} course-action-overlay`}
             data-action-instance-id={instance.id}
+            data-action-template-id={action.template.id}
             data-layout-anchor={action.anchorKind}
             data-testid={`action-overlay-${instance.id}`}
             key={instance.id}
-            style={{ ...action.style, animation: 'none', transition: 'none' }}
+            style={{
+              ...action.style,
+              opacity: animationOpacity(
+                frame,
+                instance.fromFrame,
+                instance.durationFrames,
+                instance.fadeInFrames,
+                instance.fadeOutFrames,
+              ),
+              animation: 'none',
+              transition: 'none',
+            }}
           >
             {actionBody(action)}
           </div>

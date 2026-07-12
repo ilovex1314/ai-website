@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-website.local/schemas/hyperframes-project-source.schema.json",
+  "title": "HyperframesProjectSource",
+  "type": "object",
+  "required": [
+    "id",
+    "sourceKind",
+    "projectPath",
+    "entryHtml",
+    "assetsDir",
+    "structureStatus",
+    "audioPolicy"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "sourceKind": { "const": "hyperframes-project" },
+    "name": { "type": "string" },
+    "projectPath": { "type": "string" },
+    "entryHtml": { "type": "string" },
+    "designFile": { "type": "string" },
+    "assetsDir": { "type": "string" },
+    "renderedPreview": { "type": "string" },
+    "audioPolicy": { "const": "muted" },
+    "structureStatus": {
+      "type": "object",
+      "required": [
+        "status",
+        "scenesParsed",
+        "elementsParsed",
+        "animationsDetected",
+        "missingActionsCreated"
+      ],
+      "properties": {
+        "status": { "enum": ["mock", "parsed", "missing"] },
+        "scenesParsed": { "type": "integer", "minimum": 0 },
+        "elementsParsed": { "type": "integer", "minimum": 0 },
+        "animationsDetected": { "type": "integer", "minimum": 0 },
+        "missingActionsCreated": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

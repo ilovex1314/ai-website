@@ -70,6 +70,7 @@ export const actionTemplateSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   category: z.string().min(1),
+  assetKind: z.enum(['animate-existing-element', 'add-element-with-animation']).default('animate-existing-element'),
   source: z.enum(['manual', 'hyperframes']).optional(),
   selector: z.string().min(1).optional(),
   actionSignature: z.string().min(1).optional(),

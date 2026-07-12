@@ -1,0 +1,814 @@
+{
+  "schemaVersion": 1,
+  "sourceDimensions": {
+    "width": 1080,
+    "height": 1920
+  },
+  "elements": {
+    "result-eyebrow": {
+      "id": "result-eyebrow",
+      "sceneId": "scene-result",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"result-eyebrow\"]",
+      "text": "先给你看结果",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 0,
+        "toFrame": 420
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 220,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-result.png"
+      }
+    },
+    "result-title": {
+      "id": "result-title",
+      "sceneId": "scene-result",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"result-title\"]",
+      "text": "我最近做了个小工具，专门给口播课加动画",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 0,
+        "toFrame": 420
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 930,
+          "height": 144.1875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-result.png"
+      }
+    },
+    "result-preview": {
+      "id": "result-preview",
+      "sceneId": "scene-result",
+      "role": "media",
+      "selector": "[data-hf-element-id=\"result-preview\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 0,
+        "toFrame": 420
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 235,
+          "y": 345.1875,
+          "width": 610,
+          "height": 1043.8125
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-result.png"
+      }
+    },
+    "result-preview-image": {
+      "id": "result-preview-image",
+      "sceneId": "scene-result",
+      "role": "image",
+      "selector": "[data-hf-element-id=\"result-preview-image\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 0,
+        "toFrame": 420
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 214.02081298828125,
+          "y": 323.08251953125,
+          "width": 651.9583740234375,
+          "height": 1117.135498046875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-result.png"
+      }
+    },
+    "result-note": {
+      "id": "result-note",
+      "sceneId": "scene-result",
+      "role": "caption",
+      "selector": "[data-hf-element-id=\"result-note\"]",
+      "text": "PPT 在后面播，我的口播放右下，再加红圈、高亮这些讲解标注。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 0,
+        "toFrame": 420
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 1425,
+          "width": 470,
+          "height": 115
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-result.png"
+      }
+    },
+    "model-eyebrow": {
+      "id": "model-eyebrow",
+      "sceneId": "scene-product-model",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"model-eyebrow\"]",
+      "text": "先做产品拆解",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 420,
+        "toFrame": 870
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 220,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-product-model.png"
+      }
+    },
+    "model-title": {
+      "id": "model-title",
+      "sceneId": "scene-product-model",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"model-title\"]",
+      "text": "我不是想剪一条片，而是想做一个制作台",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 420,
+        "toFrame": 870
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 900,
+          "height": 127.71875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-product-model.png"
+      }
+    },
+    "model-architecture": {
+      "id": "model-architecture",
+      "sceneId": "scene-product-model",
+      "role": "diagram",
+      "selector": "[data-hf-element-id=\"model-architecture\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 420,
+        "toFrame": 870
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 328.71875,
+          "width": 936,
+          "height": 650
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-product-model.png"
+      }
+    },
+    "model-architecture-image": {
+      "id": "model-architecture-image",
+      "sceneId": "scene-product-model",
+      "role": "image",
+      "selector": "[data-hf-element-id=\"model-architecture-image\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 420,
+        "toFrame": 870
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 39.049102783203125,
+          "y": 320.86395263671875,
+          "width": 1001.90185546875,
+          "height": 695.109619140625
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-product-model.png"
+      }
+    },
+    "model-note": {
+      "id": "model-note",
+      "sceneId": "scene-product-model",
+      "role": "caption",
+      "selector": "[data-hf-element-id=\"model-note\"]",
+      "text": "核心不是“加几个动画”，而是把素材、动作库、时间轴和导出交付分清楚。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 420,
+        "toFrame": 870
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 1014.71875,
+          "width": 470,
+          "height": 115
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-product-model.png"
+      }
+    },
+    "workflow-eyebrow": {
+      "id": "workflow-eyebrow",
+      "sceneId": "scene-workflow",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"workflow-eyebrow\"]",
+      "text": "再设计工作流",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 870,
+        "toFrame": 1320
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 220,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-workflow.png"
+      }
+    },
+    "workflow-title": {
+      "id": "workflow-title",
+      "sceneId": "scene-workflow",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"workflow-title\"]",
+      "text": "从项目复盘到成片，中间要让人能介入",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 870,
+        "toFrame": 1320
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 900,
+          "height": 127.71875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-workflow.png"
+      }
+    },
+    "workflow-diagram": {
+      "id": "workflow-diagram",
+      "sceneId": "scene-workflow",
+      "role": "diagram",
+      "selector": "[data-hf-element-id=\"workflow-diagram\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 870,
+        "toFrame": 1320
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 328.71875,
+          "width": 936,
+          "height": 650
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-workflow.png"
+      }
+    },
+    "workflow-diagram-image": {
+      "id": "workflow-diagram-image",
+      "sceneId": "scene-workflow",
+      "role": "image",
+      "selector": "[data-hf-element-id=\"workflow-diagram-image\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 870,
+        "toFrame": 1320
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 39.049102783203125,
+          "y": 320.86395263671875,
+          "width": 1001.90185546875,
+          "height": 695.109619140625
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-workflow.png"
+      }
+    },
+    "workflow-steps": {
+      "id": "workflow-steps",
+      "sceneId": "scene-workflow",
+      "role": "steps",
+      "selector": "[data-hf-element-id=\"workflow-steps\"]",
+      "text": "01 先把故事线和 PPT 画面跑出来让内容先有结构，而不是直接进剪辑软件堆素材。 02 再让用户录一段横屏口播人声和真人画面作为前台，放到右下角安全区。 03 最后在工作台里补教学强调哪里需要观众看，就给哪里绑定红圈、高亮或箭头。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 870,
+        "toFrame": 1320
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 1012.71875,
+          "width": 936,
+          "height": 382
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-workflow.png"
+      }
+    },
+    "editor-eyebrow": {
+      "id": "editor-eyebrow",
+      "sceneId": "scene-editor",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"editor-eyebrow\"]",
+      "text": "我想要的操作感",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 246,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "editor-title": {
+      "id": "editor-title",
+      "sceneId": "scene-editor",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"editor-title\"]",
+      "text": "点一下标题，就能给它加动画",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 900,
+          "height": 63.859375
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "editor-workbench": {
+      "id": "editor-workbench",
+      "sceneId": "scene-editor",
+      "role": "media",
+      "selector": "[data-hf-element-id=\"editor-workbench\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 264.859375,
+          "width": 936,
+          "height": 548
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "editor-workbench-image": {
+      "id": "editor-workbench-image",
+      "sceneId": "scene-editor",
+      "role": "image",
+      "selector": "[data-hf-element-id=\"editor-workbench-image\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 55.715118408203125,
+          "y": 245.46627807617188,
+          "width": 1003.769775390625,
+          "height": 586.7861328125
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "editor-action-library": {
+      "id": "editor-action-library",
+      "sceneId": "scene-editor",
+      "role": "media",
+      "selector": "[data-hf-element-id=\"editor-action-library\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 1224,
+          "width": 390,
+          "height": 276
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "editor-action-library-image": {
+      "id": "editor-action-library-image",
+      "sceneId": "scene-editor",
+      "role": "image",
+      "selector": "[data-hf-element-id=\"editor-action-library-image\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 73,
+          "y": 1225,
+          "width": 388,
+          "height": 274
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "editor-steps": {
+      "id": "editor-steps",
+      "sceneId": "scene-editor",
+      "role": "steps",
+      "selector": "[data-hf-element-id=\"editor-steps\"]",
+      "text": "01先放进 PPT 项目让平台知道每一页、每个标题大概在哪里。 02再上传口播视频右下角预留真人窗口，避免挡住重点。 03最后绑定动作比如红圈标题、突出关键句、提示下一步。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1320,
+        "toFrame": 1800
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 856.859375,
+          "width": 936,
+          "height": 266.140625
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-editor.png"
+      }
+    },
+    "manifest-eyebrow": {
+      "id": "manifest-eyebrow",
+      "sceneId": "scene-manifest",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"manifest-eyebrow\"]",
+      "text": "这次升级的关键",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1800,
+        "toFrame": 2310
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 246,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-manifest.png"
+      }
+    },
+    "manifest-title": {
+      "id": "manifest-title",
+      "sceneId": "scene-manifest",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"manifest-title\"]",
+      "text": "生成视频时，就把元素和动画说明一起交付",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1800,
+        "toFrame": 2310
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 900,
+          "height": 127.71875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-manifest.png"
+      }
+    },
+    "manifest-workbench": {
+      "id": "manifest-workbench",
+      "sceneId": "scene-manifest",
+      "role": "media",
+      "selector": "[data-hf-element-id=\"manifest-workbench\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1800,
+        "toFrame": 2310
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 328.71875,
+          "width": 936,
+          "height": 548
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-manifest.png"
+      }
+    },
+    "manifest-workbench-image": {
+      "id": "manifest-workbench-image",
+      "sceneId": "scene-manifest",
+      "role": "image",
+      "selector": "[data-hf-element-id=\"manifest-workbench-image\"]",
+      "text": "",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1800,
+        "toFrame": 2310
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 37.928314208984375,
+          "y": 316.1201477050781,
+          "width": 1004.143310546875,
+          "height": 587.004638671875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-manifest.png"
+      }
+    },
+    "manifest-contract": {
+      "id": "manifest-contract",
+      "sceneId": "scene-manifest",
+      "role": "contract",
+      "selector": "[data-hf-element-id=\"manifest-contract\"]",
+      "text": "ID每个元素都有稳定编号重新生成后，工作台仍能找到同一个标题或代码块。 MAP元素地图直接给出位置初始化读取描述文件，不再逐帧扫描整条视频。 FX动画清单保留原始动作进入、移动和缩放都回到对应元素下面。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 1800,
+        "toFrame": 2310
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 910.71875,
+          "width": 936,
+          "height": 382
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-manifest.png"
+      }
+    },
+    "edit-eyebrow": {
+      "id": "edit-eyebrow",
+      "sceneId": "scene-edit-model",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"edit-eyebrow\"]",
+      "text": "动画终于可以真正编辑",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2310,
+        "toFrame": 2820
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 324,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-edit-model.png"
+      }
+    },
+    "edit-title": {
+      "id": "edit-title",
+      "sceneId": "scene-edit-model",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"edit-title\"]",
+      "text": "内置动画可修改、禁用、恢复，同一元素还能分段叠加动作",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2310,
+        "toFrame": 2820
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 900,
+          "height": 127.71875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-edit-model.png"
+      }
+    },
+    "edit-model": {
+      "id": "edit-model",
+      "sceneId": "scene-edit-model",
+      "role": "diagram",
+      "selector": "[data-hf-element-id=\"edit-model\"]",
+      "text": "HyperFrames 内置动作 baseline 保留原始参数；修改或删除后，都可以一键恢复。 平台新增教学动作 overlay 圈注、高亮和聚焦可以绑定在不同时间段。 冲突按属性通道判断 guardrail 同一时间不能让两个动作同时争抢位置或缩放。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2310,
+        "toFrame": 2820
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 356.71875,
+          "width": 936,
+          "height": 492.40625
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-edit-model.png"
+      }
+    },
+    "edit-note": {
+      "id": "edit-note",
+      "sceneId": "scene-edit-model",
+      "role": "caption",
+      "selector": "[data-hf-element-id=\"edit-note\"]",
+      "text": "竖屏素材使用专属布局，画布放大；最后可以直接出成片，也可以交给剪映继续改。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2310,
+        "toFrame": 2820
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 885.125,
+          "width": 470,
+          "height": 149.5
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-edit-model.png"
+      }
+    },
+    "output-eyebrow": {
+      "id": "output-eyebrow",
+      "sceneId": "scene-output",
+      "role": "eyebrow",
+      "selector": "[data-hf-element-id=\"output-eyebrow\"]",
+      "text": "最后跑通的流程",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2820,
+        "toFrame": 3300
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 82,
+          "width": 246,
+          "height": 63
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-output.png"
+      }
+    },
+    "output-title": {
+      "id": "output-title",
+      "sceneId": "scene-output",
+      "role": "title",
+      "selector": "[data-hf-element-id=\"output-title\"]",
+      "text": "以后做教程视频，我就按这条线走",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2820,
+        "toFrame": 3300
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 173,
+          "width": 900,
+          "height": 127.71875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-output.png"
+      }
+    },
+    "output-flow": {
+      "id": "output-flow",
+      "sceneId": "scene-output",
+      "role": "steps",
+      "selector": "[data-hf-element-id=\"output-flow\"]",
+      "text": "A先复盘一个真实项目把过程整理成适合分享的故事线。 B生成 PPT 背景视频画面先有节奏，口播再跟着讲。 C录一段横屏口播放到右下角，像边做边讲的屏幕分享。 D最后加讲解标注哪里要强调，就圈出来给观众看。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2820,
+        "toFrame": 3300
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 344.71875,
+          "width": 936,
+          "height": 360.1875
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-output.png"
+      }
+    },
+    "output-note": {
+      "id": "output-note",
+      "sceneId": "scene-output",
+      "role": "caption",
+      "selector": "[data-hf-element-id=\"output-note\"]",
+      "text": "重点不是一次把视频做完，而是让下一次初始化更快、编辑更稳、交付更干净。",
+      "depth": 1,
+      "visibility": {
+        "fromFrame": 2820,
+        "toFrame": 3300
+      },
+      "rectsByAspect": {
+        "9:16": {
+          "x": 72,
+          "y": 740.90625,
+          "width": 470,
+          "height": 149.5
+        }
+      },
+      "thumbnailsByAspect": {
+        "9:16": "assets/thumbnails/scene-output.png"
+      }
+    }
+  }
+}

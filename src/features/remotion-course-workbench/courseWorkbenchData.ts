@@ -19,12 +19,12 @@ function bakedRef(ref: TimelineSegment['actionRefs'][number]): TimelineSegment['
 }
 
 const demoProject: CourseProject = {
-  id: 'codex-keyframes-tutorial',
-  title: 'Codex Keyframes Tutorial',
-  platform: '抖音竖屏课程复盘 / Codex 实战',
+  id: 'remotion-course-workbench-manifest-case',
+  title: '口播课程动画制作台教学案例',
+  platform: '竖屏课程复盘 / Manifest-first 工作台',
   aspectRatio: '9:16',
   fps: 30,
-  style: '竖屏、深蓝科技感、橙色强调、教程复盘',
+  style: '竖屏、科技网格、蓝绿结构色、自然产品复盘',
   localBridgeMode: 'handoff-only',
 }
 
@@ -32,15 +32,15 @@ const demoAssets: CourseAsset[] = [
   {
     id: 'asset-hyperframes-project',
     type: 'export',
-    name: 'Codex Keyframes Tutorial HyperFrames Project',
-    path: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial',
+    name: 'Remotion Course Workbench Manifest-first Case',
+    path: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case',
     status: 'ready',
   },
   {
     id: 'asset-speaker',
     type: 'speaker-video',
-    name: 'codex-keyframes-tutorial.mp4',
-    path: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
+    name: 'remotion-course-workbench-manifest-case.mp4',
+    path: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/renders/remotion-course-workbench-manifest-case.mp4',
     status: 'ready',
   },
   { id: 'asset-slide-001', type: 'slide', name: '001.png', path: 'assets/slides/001.png', status: 'ready' },
@@ -54,6 +54,7 @@ const demoAssets: CourseAsset[] = [
 const detectedHyperframesAnimations: DetectedHyperframesAnimation[] = [
   {
     id: 'hf-anim-code-highlight',
+    elementId: 'element-code-sample',
     compositionId: 'scene-03',
     selector: '#scene-03-code-block',
     actionSignature: 'code-line emphasis with amber background and y entrance',
@@ -65,6 +66,7 @@ const detectedHyperframesAnimations: DetectedHyperframesAnimation[] = [
   },
   {
     id: 'hf-anim-marker-sweep',
+    elementId: 'element-flow-node',
     compositionId: 'scene-02',
     selector: '.metric-card-primary',
     actionSignature: 'marker sweep highlight background',
@@ -81,6 +83,7 @@ const hyperframesDraftActions: AnimationAction[] = [
     id: 'marker-sweep',
     name: 'HyperFrames 标记扫光',
     category: 'highlight',
+    assetKind: 'animate-existing-element',
     source: 'hyperframes',
     selector: '.metric-card-primary',
     actionSignature: 'marker sweep highlight background',
@@ -113,36 +116,36 @@ const hyperframesDraftActions: AnimationAction[] = [
 
 const demoStage: CourseStage = {
   backgroundSource: {
-    id: 'hf-codex-keyframes-tutorial',
+    id: 'hf-remotion-course-workbench-manifest-case',
     sourceKind: 'hyperframes-project',
-    name: 'HyperFrames Project: Codex Keyframes Tutorial',
-    projectPath: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial',
-    entryHtml: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/index.html',
-    designFile: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/DESIGN.md',
-    assetsDir: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/assets',
+    name: 'HyperFrames Project: Manifest-first 教学案例',
+    projectPath: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case',
+    entryHtml: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/index.html',
+    designFile: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/DESIGN.md',
+    assetsDir: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/assets',
     renderedPreview:
-      '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
+      '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/renders/remotion-course-workbench-manifest-case.mp4',
     previewMode: 'video',
     sourceAspectRatio: '9:16',
     localPreviewUrl:
-      '/@fs/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
+      '/@fs/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/renders/remotion-course-workbench-manifest-case.mp4',
     structureStatus: {
       status: 'mock',
-      scenesParsed: 12,
-      elementsParsed: 8,
-      animationsDetected: detectedHyperframesAnimations.length,
-      missingActionsCreated: hyperframesDraftActions.length,
+      scenesParsed: 7,
+      elementsParsed: 35,
+      animationsDetected: 34,
+      missingActionsCreated: 0,
     },
     audioPolicy: 'muted',
   },
   foregroundSource: {
     id: 'foreground-speaker',
     sourceKind: 'foreground-speaker-video',
-    name: '前台区口播视频 codex-keyframes-tutorial.mp4',
-    path: '/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
+    name: '前台区口播视频 remotion-course-workbench-manifest-case.mp4',
+    path: '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/renders/remotion-course-workbench-manifest-case.mp4',
     localPreviewUrl:
-      '/@fs/Volumes/2TB-NVMe/work/image2/codex-keyframes-tutorial/renders/codex-keyframes-tutorial.mp4',
-    durationFrames: 4740,
+      '/@fs/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case/renders/remotion-course-workbench-manifest-case.mp4',
+    durationFrames: 3300,
     audioPolicy: 'primary',
   },
   foregroundWindow: {
@@ -257,7 +260,7 @@ const demoTimeline: TimelineSegment[] = [
     id: 'seg-wrap',
     title: '发布版与后续升级',
     from: 2700,
-    duration: 2040,
+    duration: 600,
     slide: 4,
     speaker: 'right-bottom',
     caption: '先做可发布版本，再把 I2V、关键动作帧和二次剪辑作为后续升级。',
@@ -274,13 +277,14 @@ export function createDefaultCourseWorkbenchState(): CourseWorkbenchState {
     stage: demoStage,
     playback: {
       currentFrame: 0,
-      totalFrames: 4740,
+      totalFrames: 3300,
       isPlaying: false,
     },
     assets: demoAssets,
     timeline: demoTimeline,
     actions: [...demoAnimationActions, ...hyperframesDraftActions],
     detectedHyperframesAnimations,
+    hyperframesAnimationOverrides: {},
     selectedSegmentId: 'seg-intro',
     selectedActionId: 'circle-mark',
     selectedElementId: undefined,

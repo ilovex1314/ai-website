@@ -56,6 +56,32 @@ const ready: CourseProjectIntakeResult = {
 afterEach(cleanup)
 
 describe('CourseProjectIntake', () => {
+  it('automatically imports the configured local project on mount', async () => {
+    const api: CourseProjectIntakeApi = {
+      importHyperframes: vi.fn().mockResolvedValue(ready),
+      uploadForeground: vi.fn(),
+    }
+    const onStateChange = vi.fn()
+
+    render(
+      <CourseProjectIntake
+        api={api}
+        autoImport
+        projectPath="/allowed/course"
+        durationLabel="10s · 300f"
+        foregroundName="speaker.mp4"
+        foregroundPath="/allowed/speaker.mp4"
+        structure={{ scenes: 0, elements: 0, animations: 0 }}
+        onStateChange={onStateChange}
+      />,
+    )
+
+    expect(await screen.findByText('项目已就绪')).toBeInTheDocument()
+    expect(api.importHyperframes).toHaveBeenCalledTimes(1)
+    expect(api.importHyperframes).toHaveBeenCalledWith('/allowed/course', false)
+    expect(onStateChange).toHaveBeenCalledWith('ready')
+  })
+
   it('moves from idle through scanning, migration-required, applying and ready', async () => {
     const user = userEvent.setup()
     const scan = deferred<CourseProjectIntakeResult>()

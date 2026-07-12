@@ -1,8 +1,10 @@
 import type { AnimationAction, AnimationActionStatus, CourseWorkbenchAction } from './workbenchTypes'
+import { PointingArrowEditor } from './PointingArrowEditor'
 
 type CourseActionEditorProps = {
   action: AnimationAction
   dispatch: React.Dispatch<CourseWorkbenchAction>
+  showPointingEditor?: boolean
 }
 
 function numberValue(value: number | undefined) {
@@ -13,7 +15,7 @@ function opacityValue(value: number | undefined) {
   return value ?? 0
 }
 
-export function CourseActionEditor({ action, dispatch }: CourseActionEditorProps) {
+export function CourseActionEditor({ action, dispatch, showPointingEditor = true }: CourseActionEditorProps) {
   return (
     <section className="course-card course-card--editor">
       <div className="course-card__header">
@@ -202,6 +204,12 @@ export function CourseActionEditor({ action, dispatch }: CourseActionEditorProps
           />
         </label>
       </div>
+      {showPointingEditor ? (
+        <PointingArrowEditor
+          action={action}
+          onChange={(params) => dispatch({ type: 'update-action', id: action.id, patch: { params } })}
+        />
+      ) : null}
       <div className="editor-actions">
         <button
           className="course-button"

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-website.local/schemas/action-ref.schema.json",
+  "title": "AnimationActionRef",
+  "type": "object",
+  "required": ["actionId", "from", "duration"],
+  "properties": {
+    "actionId": { "type": "string" },
+    "presetId": { "type": "string" },
+    "elementId": { "type": "string" },
+    "from": { "type": "integer", "minimum": 0 },
+    "duration": { "type": "integer", "minimum": 1 },
+    "params": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

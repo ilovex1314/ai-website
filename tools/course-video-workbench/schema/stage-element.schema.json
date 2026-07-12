@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-website.local/schemas/stage-element.schema.json",
+  "title": "StageElement",
+  "type": "object",
+  "required": [
+    "id",
+    "source",
+    "compositionId",
+    "selector",
+    "kind",
+    "label",
+    "frameRange",
+    "box"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "source": { "const": "hyperframes" },
+    "compositionId": { "type": "string" },
+    "selector": { "type": "string" },
+    "kind": {
+      "enum": [
+        "title",
+        "paragraph",
+        "code",
+        "chart",
+        "image",
+        "flow-node",
+        "caption",
+        "unknown"
+      ]
+    },
+    "label": { "type": "string" },
+    "frameRange": {
+      "type": "array",
+      "prefixItems": [{ "type": "integer" }, { "type": "integer" }],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "box": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number" },
+        "height": { "type": "number" }
+      }
+    }
+  }
+}

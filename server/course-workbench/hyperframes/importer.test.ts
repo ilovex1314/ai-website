@@ -105,8 +105,13 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
     expect(imported.sourceDimensions).toEqual({ width: 1080, height: 1920 })
     expect(Object.keys(imported.sceneMap)).toHaveLength(11)
     expect(Object.keys(imported.elementMap).length).toBeGreaterThan(20)
-    expect(Object.keys(imported.bakedAnimationMap).length).toBe(Object.keys(imported.elementMap).length)
-    expect(imported.project.source.bakedAnimations).toHaveLength(Object.keys(imported.elementMap).length)
+    expect(Object.keys(imported.bakedAnimationMap).length).toBeGreaterThan(30)
+    expect(imported.project.source.bakedAnimations).toHaveLength(Object.keys(imported.bakedAnimationMap).length)
+    Object.values(imported.bakedAnimationMap).forEach((animation) => {
+      expect(imported.elementMap[animation.elementId]).toBeDefined()
+      expect(animation.kind).not.toBe('runtime-entrance')
+      expect(animation.durationFrames).toBeGreaterThan(0)
+    })
     expect(imported.project.actionInstances).toEqual([])
     expect(imported.backgroundMedia).toMatchObject({
       relativePath: 'renders/codex-keyframes-tutorial.mp4',
@@ -160,6 +165,141 @@ describe.skipIf(!existsSync(realFixture))('real HyperFrames import', () => {
 })
 
 describe('baked animation ownership', () => {
+  it('can declare the rendered teaching video as the temporary foreground source', async () => {
+    const fixture = '/Users/happyboy/Documents/ai-website/videos/remotion-course-workbench-manifest-case'
+    const projectRoot = await temporaryDirectory('course-workbench-manifest-case-projects-')
+
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot,
+      allowedSourceRoots: ['/Users/happyboy/Documents/ai-website/videos'],
+      aspects: ['9:16'],
+    })
+
+    expect(imported.status).toBe('ready')
+    if (imported.status !== 'ready') throw new Error('Expected ready import')
+    expect(imported.project.source.foreground).toMatchObject({
+      mediaUrl: expect.stringContaining('remotion-course-workbench-manifest-case.mp4'),
+      durationFrames: imported.project.durationFrames,
+      audioPolicy: 'primary',
+    })
+  }, 30_000)
+
+  it('uses a declared element map directly instead of replacing it with runtime sampling', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-manifest-first-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'manifest-first-course')
+    const projectRoot = await temporaryDirectory('course-workbench-projects-')
+    await writeFile(
+      join(fixture, 'index.html'),
+      '<!doctype html><html><body><div data-composition-id="main" data-width="1920" data-height="1080"><section data-hf-scene-id="intro"><h1 data-hf-element-id="title" data-hf-role="title" style="display:none">Hello</h1></section></div></body></html>',
+    )
+    await mkdir(join(fixture, 'assets', 'thumbnails'), { recursive: true })
+    await writeFile(join(fixture, 'assets', 'thumbnails', 'intro.png'), 'declared-thumbnail')
+    await writeFile(
+      join(fixture, 'element-map.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        sourceDimensions: { width: 1920, height: 1080 },
+        elements: {
+          title: {
+            id: 'title',
+            sceneId: 'intro',
+            role: 'title',
+            selector: '[data-hf-element-id="title"]',
+            text: 'Hello',
+            depth: 1,
+            visibility: { fromFrame: 0, toFrame: 90 },
+            rectsByAspect: {
+              '16:9': { x: 120, y: 160, width: 680, height: 120 },
+            },
+            thumbnailsByAspect: {
+              '16:9': 'assets/thumbnails/intro.png',
+            },
+          },
+        },
+      }),
+    )
+
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot,
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })
+
+    expect(imported.status).toBe('ready')
+    if (imported.status !== 'ready') throw new Error('Expected ready import')
+
+    expect(imported.elementMap.title).toMatchObject({
+      visibility: { fromFrame: 0, toFrame: 90 },
+      rectsByAspect: {
+        '16:9': { x: 120, y: 160, width: 680, height: 120 },
+      },
+      thumbnailsByAspect: {
+        '16:9': 'hyperframes/thumbnails/16x9/intro.png',
+      },
+    })
+    await expect(stat(join(projectRoot, 'manifest-first-course', 'hyperframes', 'thumbnails', '16x9', 'intro.png')))
+      .resolves.toMatchObject({ size: 18 })
+  }, 30_000)
+
+  it('discovers element-owned GSAP tweens when the manifest has no animation declarations', async () => {
+    const sourceRoot = await temporaryDirectory('course-workbench-runtime-animation-source-')
+    const fixture = await createDeclaredFixture(sourceRoot, 'runtime-animation-course')
+    const projectRoot = await temporaryDirectory('course-workbench-projects-')
+    await writeFile(
+      join(fixture, 'index.html'),
+      `<!doctype html><html><body>
+        <div data-composition-id="main" data-width="1920" data-height="1080">
+          <section data-hf-scene-id="intro">
+            <h1 data-hf-element-id="title" data-hf-role="title">Hello</h1>
+          </section>
+        </div>
+        <script>
+          const title = document.querySelector('[data-hf-element-id="title"]');
+          window.__timelines = {
+            main: {
+              seek() {},
+              getChildren() {
+                return [
+                  {
+                    targets() { return [title]; },
+                    startTime() { return 0.5; },
+                    duration() { return 0.6; },
+                    totalDuration() { return 0.6; },
+                    vars: { y: 54, opacity: 0, scale: 0.98, ease: 'expo.out', runBackwards: true }
+                  }
+                ];
+              }
+            }
+          };
+        </script>
+      </body></html>`,
+    )
+
+    const imported = await importHyperframesProject({
+      sourcePath: fixture,
+      projectRoot,
+      allowedSourceRoots: [sourceRoot],
+      aspects: ['16:9'],
+    })
+
+    expect(imported.status).toBe('ready')
+    if (imported.status !== 'ready') throw new Error('Expected ready import')
+
+    expect(Object.values(imported.bakedAnimationMap)).toEqual([
+      expect.objectContaining({
+        elementId: 'title',
+        sceneId: 'intro',
+        fromFrame: 15,
+        durationFrames: 18,
+        kind: 'entrance',
+        properties: expect.arrayContaining(['opacity', 'scale', 'translate']),
+        ease: 'expo.out',
+      }),
+    ])
+  }, 30_000)
+
   it('keeps manifest animations in source metadata and never creates action instances', async () => {
     const sourceRoot = await temporaryDirectory('course-workbench-declared-source-')
     const fixture = join(sourceRoot, 'declared-course')

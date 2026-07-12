@@ -2,6 +2,7 @@ import {
   parseCourseProject,
   type CourseProjectV2,
 } from '../domain/courseProjectSchema.js'
+import type { HyperframesAnimationOverride } from '../workbenchTypes.js'
 
 export type WorkbenchClientOptions = {
   baseUrl?: string
@@ -14,6 +15,25 @@ export type WorkbenchClientErrorBody = {
   message: string
   subject?: string
   recovery: string
+}
+
+export type WorkbenchRenderResult = {
+  outputPath: string
+  mediaUrl: string
+}
+
+export type HyperframesOverrideRequest = {
+  sourcePath: string
+  fps: number
+  overrides: HyperframesAnimationOverride[]
+  renderPreview?: boolean
+}
+
+export type HyperframesOverrideResult = {
+  workingCopyPath: string
+  overridesPath: string
+  outputPath?: string
+  mediaUrl?: string
 }
 
 export class WorkbenchClientError extends Error {
@@ -53,6 +73,30 @@ export class WorkbenchClient {
       body: JSON.stringify(project),
     })
     return parseCourseProject(await response.json())
+  }
+
+  async renderProject(
+    project: CourseProjectV2,
+    aspectRatio: CourseProjectV2['activeAspectRatio'],
+  ): Promise<WorkbenchRenderResult> {
+    const response = await this.request(`/projects/${encodeURIComponent(project.id)}/render`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ project, aspectRatio }),
+    })
+    return (await response.json()) as WorkbenchRenderResult
+  }
+
+  async saveHyperframesOverrides(
+    projectId: string,
+    request: HyperframesOverrideRequest,
+  ): Promise<HyperframesOverrideResult> {
+    const response = await this.request(`/projects/${encodeURIComponent(projectId)}/hyperframes-overrides`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+    return (await response.json()) as HyperframesOverrideResult
   }
 
   private async request(path: string, init?: RequestInit): Promise<Response> {

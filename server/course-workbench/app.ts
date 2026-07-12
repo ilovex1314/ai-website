@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
-import { mkdir, readFile, rename, rm } from 'node:fs/promises'
+import { copyFile, link, mkdir, readFile, rename, rm } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { join, relative } from 'node:path'
+import { extname, join, relative, resolve } from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import { promisify } from 'node:util'
 import { ZodError } from 'zod'
 import {
   DEFAULT_FOREGROUND_WINDOW,
@@ -13,6 +15,10 @@ import {
 } from '../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
 import type { WorkbenchConfig } from './config.js'
 import { importHyperframesProject } from './hyperframes/importer.js'
+import {
+  applyAnimationOverrides,
+  type HyperframesAnimationOverride,
+} from './hyperframes/animationOverrides.js'
 import { probeMedia } from './mediaProbe.js'
 import {
   resolveContainedPath,
@@ -32,6 +38,8 @@ export type WorkbenchErrorBody = {
   subject?: string
   recovery: string
 }
+
+const execFileAsync = promisify(execFile)
 
 function sendJson(response: ServerResponse, statusCode: number, value: unknown): void {
   response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' })
@@ -110,6 +118,314 @@ function foregroundProjectIdFromPath(pathname: string): string | undefined {
     return decodeURIComponent(match[1])
   } catch {
     return undefined
+  }
+}
+
+function renderProjectIdFromPath(pathname: string): string | undefined {
+  const match = /^\/api\/projects\/([^/]+)\/render$/.exec(pathname)
+  if (!match) return undefined
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return undefined
+  }
+}
+
+function overrideProjectIdFromPath(pathname: string): string | undefined {
+  const match = /^\/api\/projects\/([^/]+)\/hyperframes-overrides$/.exec(pathname)
+  if (!match) return undefined
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return undefined
+  }
+}
+
+function animationOverrideRequest(value: unknown): {
+  sourcePath: string
+  fps: number
+  overrides: HyperframesAnimationOverride[]
+  renderPreview: boolean
+} {
+  const body = record(value)
+  const sourcePath = body?.sourcePath
+  const fps = body?.fps
+  const overrides = body?.overrides
+  const renderPreview = body?.renderPreview ?? true
+  const validOverride = (candidate: unknown): candidate is HyperframesAnimationOverride => {
+    const item = record(candidate)
+    return typeof item?.animationId === 'string'
+      && (item.operation === 'modify' || item.operation === 'disable')
+      && (item.fromFrame === undefined || (typeof item.fromFrame === 'number' && item.fromFrame >= 0))
+      && (item.durationFrames === undefined || (typeof item.durationFrames === 'number' && item.durationFrames > 0))
+      && (item.ease === undefined || typeof item.ease === 'string')
+      && (item.fallback === undefined
+        || item.fallback === 'show-final-state-at-start'
+        || item.fallback === 'keep-base-state')
+  }
+
+  if (
+    typeof sourcePath !== 'string'
+    || typeof fps !== 'number'
+    || !Number.isInteger(fps)
+    || fps <= 0
+    || !Array.isArray(overrides)
+    || !overrides.every(validOverride)
+    || typeof renderPreview !== 'boolean'
+  ) {
+    throw new WorkbenchServiceError({
+      code: 'INVALID_ANIMATION_OVERRIDES',
+      stage: 'render',
+      message: 'HyperFrames animation override request is invalid',
+      recovery: 'Submit a sourcePath, positive integer fps, and valid modify or disable overrides.',
+    })
+  }
+
+  return { sourcePath, fps, overrides, renderPreview }
+}
+
+async function materializeHyperframesOverrides(
+  config: WorkbenchConfig,
+  projectId: string,
+  request: ReturnType<typeof animationOverrideRequest>,
+) {
+  const projectDirectory = await resolveContainedPath(config.projectRoot, projectId, {
+    allowMissing: false,
+    rejectSymlinks: true,
+    code: 'PROJECT_NOT_FOUND',
+    stage: 'render',
+    message: 'Course project must be imported before applying HyperFrames overrides',
+    recovery: 'Import the HyperFrames project and try again.',
+  })
+  let sourceRoot: string | undefined
+
+  for (const allowedRoot of config.allowedSourceRoots) {
+    try {
+      sourceRoot = await resolveContainedPath(allowedRoot, request.sourcePath, {
+        allowMissing: false,
+        rejectSymlinks: false,
+        code: 'SOURCE_NOT_ALLOWED',
+        stage: 'render',
+        message: 'HyperFrames override source must stay inside an allowed source root',
+        recovery: 'Import the source project through the Workbench before applying overrides.',
+      })
+      break
+    } catch (error) {
+      if (!(error instanceof WorkbenchServiceError)) throw error
+    }
+  }
+
+  if (!sourceRoot) {
+    throw new WorkbenchServiceError({
+      code: 'SOURCE_NOT_ALLOWED',
+      stage: 'render',
+      message: 'HyperFrames override source must stay inside an allowed source root',
+      subject: request.sourcePath,
+      recovery: 'Import the source project through the Workbench before applying overrides.',
+    })
+  }
+
+  const hyperframesDirectory = join(projectDirectory, 'hyperframes')
+  const workingCopyPath = join(hyperframesDirectory, 'working-copy')
+  const canonicalOverridesPath = join(hyperframesDirectory, 'animation-overrides.json')
+  await mkdir(hyperframesDirectory, { recursive: true })
+  const materialized = await applyAnimationOverrides({
+    sourceRoot,
+    targetRoot: workingCopyPath,
+    fps: request.fps,
+    overrides: request.overrides,
+  })
+  await copyFile(materialized.overridesPath, canonicalOverridesPath)
+
+  if (!request.renderPreview) {
+    return { workingCopyPath, overridesPath: canonicalOverridesPath }
+  }
+
+  const renderDirectory = join(projectDirectory, 'renders')
+  const outputPath = join(renderDirectory, 'hyperframes-overridden.mp4')
+  await mkdir(renderDirectory, { recursive: true })
+  await execFileAsync(
+    'npx',
+    [
+      '--yes',
+      'hyperframes@0.7.31',
+      'render',
+      '--output',
+      outputPath,
+      '--quality',
+      'draft',
+      '--workers',
+      '2',
+    ],
+    { cwd: workingCopyPath, maxBuffer: 10 * 1024 * 1024, timeout: 20 * 60 * 1000 },
+  )
+
+  return {
+    workingCopyPath,
+    overridesPath: canonicalOverridesPath,
+    outputPath,
+    mediaUrl: `/@fs${outputPath}`,
+  }
+}
+
+function renderRequest(value: unknown): {
+  project: CourseProjectV2 & { elementMap?: unknown }
+  aspectRatio: '16:9' | '4:3' | '9:16'
+} {
+  const body = typeof value === 'object' && value !== null ? value as Record<string, unknown> : undefined
+  const rawProject = body?.project
+  const aspectRatio = body?.aspectRatio
+
+  if (!rawProject || !['16:9', '4:3', '9:16'].includes(String(aspectRatio))) {
+    throw new WorkbenchServiceError({
+      code: 'RENDER_REQUEST_INVALID',
+      stage: 'render',
+      message: 'Render request must include project and aspectRatio',
+      recovery: 'Submit the current composition project and a supported aspect ratio.',
+    })
+  }
+
+  const project = parseCourseProject(rawProject)
+  const elementMap = (rawProject as { elementMap?: unknown }).elementMap
+  return {
+    project: { ...project, ...(elementMap === undefined ? {} : { elementMap }) },
+    aspectRatio: aspectRatio as '16:9' | '4:3' | '9:16',
+  }
+}
+
+async function renderCourseProject(
+  config: WorkbenchConfig,
+  projectId: string,
+  request: ReturnType<typeof renderRequest>,
+) {
+  if (request.project.id !== projectId) {
+    throw new WorkbenchServiceError({
+      code: 'PROJECT_ID_MISMATCH',
+      stage: 'render',
+      message: 'Render route id must match the composition project id',
+      recovery: 'Render the project using its own project id.',
+    })
+  }
+
+  const projectDirectory = await resolveContainedPath(config.projectRoot, projectId, {
+    allowMissing: false,
+    rejectSymlinks: true,
+    code: 'RENDER_PATH_NOT_ALLOWED',
+    stage: 'render',
+    message: 'Render output must stay inside the course project',
+    recovery: 'Import and save the project before rendering it.',
+  })
+  const renderDirectory = join(projectDirectory, 'renders')
+  const publicProjectId = projectId.replace(/[^a-zA-Z0-9_-]/gu, '_')
+  const mediaDirectory = resolve(process.cwd(), 'public', 'workbench-render', publicProjectId)
+  await mkdir(renderDirectory, { recursive: true })
+  await mkdir(mediaDirectory, { recursive: true })
+  const propsPath = join(renderDirectory, 'input-props.json')
+  const outputPath = join(renderDirectory, `master-${request.aspectRatio.replace(':', 'x')}.mp4`)
+  const mediaRoots = [...config.allowedSourceRoots, config.projectRoot]
+  const materializeMedia = async (mediaUrl: string, name: string) => {
+    if (!mediaUrl.startsWith('/@fs/')) {
+      throw new WorkbenchServiceError({
+        code: 'RENDER_MEDIA_URL_INVALID',
+        stage: 'render',
+        message: 'Local render media must use a Workbench /@fs path',
+        subject: mediaUrl,
+        recovery: 'Import the source through the Workbench before rendering.',
+      })
+    }
+
+    const requestedPath = decodeURI(mediaUrl.slice('/@fs'.length).split('#', 1)[0])
+    let sourcePath: string | undefined
+
+    for (const root of mediaRoots) {
+      try {
+        sourcePath = await resolveContainedPath(root, requestedPath, {
+          allowMissing: false,
+          rejectSymlinks: false,
+          code: 'RENDER_MEDIA_PATH_NOT_ALLOWED',
+          stage: 'render',
+          message: 'Render media must stay inside an allowed source root',
+          recovery: 'Import or upload the media through the Workbench before rendering.',
+        })
+        break
+      } catch (error) {
+        if (!(error instanceof WorkbenchServiceError)) throw error
+      }
+    }
+
+    if (!sourcePath) {
+      throw new WorkbenchServiceError({
+        code: 'RENDER_MEDIA_PATH_NOT_ALLOWED',
+        stage: 'render',
+        message: 'Render media must stay inside an allowed source root',
+        subject: requestedPath,
+        recovery: 'Import or upload the media through the Workbench before rendering.',
+      })
+    }
+
+    const extension = extname(sourcePath) || '.mp4'
+    const fileName = `${name}${extension}`
+    const targetPath = join(mediaDirectory, fileName)
+    await rm(targetPath, { force: true })
+
+    try {
+      await link(sourcePath, targetPath)
+    } catch {
+      await copyFile(sourcePath, targetPath)
+    }
+
+    return `/public/workbench-render/${publicProjectId}/${fileName}`
+  }
+
+  const backgroundUrl = request.project.source.background.mediaUrl
+  const foreground = request.project.source.foreground
+  const renderProject: CourseProjectV2 & { elementMap?: unknown } = {
+    ...request.project,
+    source: {
+      ...request.project.source,
+      background: {
+        ...request.project.source.background,
+        ...(backgroundUrl ? { mediaUrl: await materializeMedia(backgroundUrl, 'background') } : {}),
+      },
+      ...(foreground
+        ? {
+            foreground: {
+              ...foreground,
+              mediaUrl: await materializeMedia(foreground.mediaUrl, 'foreground'),
+            },
+          }
+        : {}),
+    },
+  }
+  await writeFileNoFollow(propsPath, `${JSON.stringify({
+    project: renderProject,
+    aspectRatio: request.aspectRatio,
+  })}\n`)
+
+  const cli = resolve(process.cwd(), 'node_modules/@remotion/cli/remotion-cli.js')
+  const entry = resolve(
+    process.cwd(),
+    'src/features/remotion-course-workbench/remotion/Root.tsx',
+  )
+  await execFileAsync(
+    process.execPath,
+    [
+      cli,
+      'render',
+      entry,
+      'CourseWorkbench',
+      outputPath,
+      `--props=${propsPath}`,
+      '--codec=h264',
+      '--overwrite',
+      '--log=error',
+    ],
+    { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024, timeout: 15 * 60 * 1000 },
+  )
+
+  return {
+    outputPath,
+    mediaUrl: `/@fs${outputPath}`,
   }
 }
 
@@ -352,6 +668,8 @@ export function createWorkbenchServer(config: WorkbenchConfig): Server {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
     const projectId = projectIdFromPath(url.pathname)
     const foregroundProjectId = foregroundProjectIdFromPath(url.pathname)
+    const renderProjectId = renderProjectIdFromPath(url.pathname)
+    const overrideProjectId = overrideProjectIdFromPath(url.pathname)
 
     try {
       if (method === 'GET' && url.pathname === '/api/health') {
@@ -386,6 +704,27 @@ export function createWorkbenchServer(config: WorkbenchConfig): Server {
           },
         })
         sendJson(response, 201, { foreground: foreground.manifest, source: foreground.source })
+        return
+      }
+
+      if (method === 'POST' && renderProjectId !== undefined) {
+        const result = await renderCourseProject(
+          config,
+          renderProjectId,
+          renderRequest(await readJson(request)),
+        )
+        sendJson(response, 201, result)
+        return
+      }
+
+      if (method === 'POST' && overrideProjectId !== undefined) {
+        await repository.load(overrideProjectId)
+        const result = await materializeHyperframesOverrides(
+          config,
+          overrideProjectId,
+          animationOverrideRequest(await readJson(request)),
+        )
+        sendJson(response, 201, result)
         return
       }
 

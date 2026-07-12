@@ -23,6 +23,11 @@ const categoryFilters: Array<{ category: CourseWorkbenchState['categoryFilter'];
   { category: 'transition', label: '转场' },
 ]
 
+const assetKindLabels = {
+  'animate-existing-element': '添加动画',
+  'add-element-with-animation': '添加元素 + 动画',
+} as const
+
 type CourseAnimationLibraryPanelProps = {
   actions: AnimationAction[]
   selectedActionId: string
@@ -75,9 +80,9 @@ export function CourseAnimationLibraryPanel({
       <div className="action-table" role="table" aria-label="动画动作资产表">
         <div className="action-table__row action-table__row--head" role="row">
           <span>Name</span>
-          <span>Type</span>
+          <span>资产类型</span>
+          <span>动作分类</span>
           <span>Status</span>
-          <span>Version</span>
           <span>Usage</span>
         </div>
         {visibleActions.map((action) => (
@@ -89,9 +94,9 @@ export function CourseAnimationLibraryPanel({
             onClick={() => dispatch({ type: 'select-action', id: action.id })}
           >
             <span>{action.name}</span>
+            <small>{assetKindLabels[action.assetKind]}</small>
             <small>{actionCategoryLabels[action.category]}</small>
             <small>{action.status}</small>
-            <small>{action.version}</small>
             <em>
               {action.source === 'hyperframes'
                 ? `source: hyperframes · ${action.selector} · ${action.actionSignature}`

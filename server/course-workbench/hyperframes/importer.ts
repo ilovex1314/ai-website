@@ -1,16 +1,25 @@
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, readdir } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir } from 'node:fs/promises'
 import { basename, join, relative } from 'node:path'
 import type { CanvasAspectRatio } from '../../../src/features/remotion-course-workbench/workbenchTypes.js'
-import type { CourseProjectV2 } from '../../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
+import {
+  DEFAULT_FOREGROUND_WINDOW,
+  type CourseProjectV2,
+} from '../../../src/features/remotion-course-workbench/domain/courseProjectSchema.js'
 import { probeMedia, type MediaMetadata } from '../mediaProbe.js'
 import { resolveContainedPath, resolveProjectArtifactPath, writeFileNoFollow } from '../pathSafety.js'
 import { createProjectRepository, WorkbenchServiceError } from '../projectRepository.js'
-import { validateHyperframesContract, type AnimationManifest } from './contract.js'
+import {
+  elementMapSchema,
+  validateHyperframesContract,
+  type AnimationManifest,
+  type DeclaredElementMap,
+} from './contract.js'
 import { applyHyperframesMigration, planHyperframesMigration } from './migrator.js'
 import {
   inspectHyperframesRuntime,
+  type RuntimeInspection,
   type RuntimeElement,
   type RuntimeScene,
 } from './runtimeInspector.js'
@@ -46,6 +55,7 @@ export type BakedAnimationMetadata = {
   durationFrames: number
   kind: string
   properties: string[]
+  ease?: string
   exportRole: 'baked-internal'
 }
 
@@ -80,7 +90,12 @@ function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
 }
 
-async function readMetadata(root: string): Promise<{ id?: string; name?: string; renderedPreview?: string }> {
+async function readMetadata(root: string): Promise<{
+  id?: string
+  name?: string
+  renderedPreview?: string
+  foregroundPreview?: string
+}> {
   const path = await resolveSourceChild(root, 'meta.json', true)
 
   if (!existsSync(path)) {
@@ -88,7 +103,12 @@ async function readMetadata(root: string): Promise<{ id?: string; name?: string;
   }
 
   try {
-    return JSON.parse(await readFile(path, 'utf8')) as { id?: string; name?: string; renderedPreview?: string }
+    return JSON.parse(await readFile(path, 'utf8')) as {
+      id?: string
+      name?: string
+      renderedPreview?: string
+      foregroundPreview?: string
+    }
   } catch {
     return {}
   }
@@ -108,6 +128,7 @@ async function validateSourceChildren(root: string): Promise<void> {
   await Promise.all([
     resolveSourceChild(root, 'index.html'),
     resolveSourceChild(root, 'animation-manifest.json', true),
+    resolveSourceChild(root, 'element-map.json', true),
     resolveSourceChild(root, 'meta.json', true),
     resolveSourceChild(root, 'hyperframes.json', true),
     resolveSourceChild(root, 'assets', true),
@@ -151,7 +172,7 @@ async function sha256(path: string): Promise<string> {
 }
 
 async function collectFingerprints(root: string, mediaPath?: string): Promise<Record<string, string>> {
-  const candidates = ['index.html', 'animation-manifest.json', 'hyperframes.json']
+  const candidates = ['index.html', 'animation-manifest.json', 'element-map.json', 'hyperframes.json']
   const fingerprints: Record<string, string> = {}
 
   for (const candidate of candidates) {
@@ -204,6 +225,122 @@ function bakedAnimationMap(manifest: AnimationManifest): Record<string, BakedAni
       },
     ]),
   )
+}
+
+const aspectViewports: Record<CanvasAspectRatio, { width: number; height: number }> = {
+  '16:9': { width: 1920, height: 1080 },
+  '4:3': { width: 1440, height: 1080 },
+  '9:16': { width: 1080, height: 1920 },
+}
+
+function containRect(
+  rect: { x: number; y: number; width: number; height: number },
+  source: { width: number; height: number },
+  target: { width: number; height: number },
+) {
+  const scale = Math.min(target.width / source.width, target.height / source.height)
+  const offsetX = (target.width - source.width * scale) / 2
+  const offsetY = (target.height - source.height * scale) / 2
+
+  return {
+    x: offsetX + rect.x * scale,
+    y: offsetY + rect.y * scale,
+    width: rect.width * scale,
+    height: rect.height * scale,
+  }
+}
+
+function sourceAspect(map: DeclaredElementMap): CanvasAspectRatio {
+  return aspectFromDimensions(map.sourceDimensions.width, map.sourceDimensions.height)
+}
+
+async function readDeclaredElementMap(root: string): Promise<DeclaredElementMap | undefined> {
+  const path = await resolveSourceChild(root, 'element-map.json', true)
+  if (!existsSync(path)) return undefined
+
+  try {
+    return elementMapSchema.parse(JSON.parse(await readFile(path, 'utf8')))
+  } catch (error) {
+    throw new WorkbenchServiceError({
+      code: 'SOURCE_CONTRACT_INVALID',
+      stage: 'import',
+      message: `HyperFrames element-map.json is invalid: ${String(error)}`,
+      subject: path,
+      recovery: 'Regenerate element-map.json from the HyperFrames source project.',
+    })
+  }
+}
+
+async function materializeDeclaredRuntime(
+  root: string,
+  map: DeclaredElementMap,
+  manifest: AnimationManifest,
+  aspects: CanvasAspectRatio[],
+  projectDirectory: string,
+): Promise<RuntimeInspection> {
+  const nativeAspect = sourceAspect(map)
+  const sceneMap: Record<string, RuntimeScene> = {}
+  const elementMap: Record<string, RuntimeElement> = {}
+
+  for (const scene of manifest.scenes) {
+    sceneMap[scene.id] = {
+      id: scene.id,
+      fromFrame: scene.fromFrame,
+      durationFrames: scene.durationFrames,
+      thumbnailsByAspect: {},
+    }
+  }
+
+  for (const [key, declared] of Object.entries(map.elements)) {
+    if (key !== declared.id || sceneMap[declared.sceneId] === undefined) {
+      throw new WorkbenchServiceError({
+        code: 'SOURCE_CONTRACT_INVALID',
+        stage: 'import',
+        message: `HyperFrames element map ownership is invalid for ${key}`,
+        subject: key,
+        recovery: 'Regenerate element-map.json so record keys, element IDs, and scene IDs agree.',
+      })
+    }
+
+    const nativeRect = declared.rectsByAspect[nativeAspect]
+      ?? Object.values(declared.rectsByAspect)[0]
+    const nativeThumbnail = declared.thumbnailsByAspect[nativeAspect]
+      ?? Object.values(declared.thumbnailsByAspect)[0]
+
+    if (nativeRect === undefined || nativeThumbnail === undefined) {
+      throw new WorkbenchServiceError({
+        code: 'SOURCE_CONTRACT_INVALID',
+        stage: 'import',
+        message: `HyperFrames element map is missing native geometry or thumbnail for ${key}`,
+        subject: key,
+        recovery: 'Capture the native aspect geometry and thumbnail before importing.',
+      })
+    }
+
+    const rectsByAspect: RuntimeElement['rectsByAspect'] = {}
+    const thumbnailsByAspect: RuntimeElement['thumbnailsByAspect'] = {}
+
+    for (const aspect of aspects) {
+      const targetReference = `hyperframes/thumbnails/${aspect.replace(':', 'x')}/${encodeURIComponent(declared.sceneId).replaceAll('%', '_')}.png`
+      const sourceThumbnail = await resolveSourceChild(root, nativeThumbnail)
+      const targetThumbnail = await resolveProjectArtifactPath(projectDirectory, targetReference)
+      await mkdir(join(targetThumbnail, '..'), { recursive: true })
+      if (!existsSync(targetThumbnail)) await copyFile(sourceThumbnail, targetThumbnail)
+      thumbnailsByAspect[aspect] = targetReference
+      sceneMap[declared.sceneId].thumbnailsByAspect[aspect] = targetReference
+      rectsByAspect[aspect] = declared.rectsByAspect[aspect]
+        ?? containRect(nativeRect, map.sourceDimensions, aspectViewports[aspect])
+    }
+
+    elementMap[key] = { ...declared, rectsByAspect, thumbnailsByAspect }
+  }
+
+  return {
+    sourceDimensions: map.sourceDimensions,
+    sceneMap,
+    elementMap,
+    animationMap: {},
+  }
 }
 
 async function persistImportArtifacts(
@@ -324,36 +461,31 @@ export async function importHyperframesProject(
     recovery: 'Remove the conflicting project symlink or choose a different project id.',
   })
   await validateArtifactDestinations(projectDirectory, aspects)
-  const runtime = await inspectHyperframesRuntime(
-    root,
-    contract.manifest,
-    aspects,
-    projectDirectory,
-  )
+  const declaredElementMap = await readDeclaredElementMap(root)
+  const runtime = declaredElementMap === undefined
+    ? await inspectHyperframesRuntime(root, contract.manifest, aspects, projectDirectory)
+    : await materializeDeclaredRuntime(root, declaredElementMap, contract.manifest, aspects, projectDirectory)
   const mediaPath = await findBackgroundMedia(root, id, metadata.renderedPreview)
   const backgroundMedia = mediaPath === undefined
     ? undefined
     : { relativePath: relative(root, mediaPath), metadata: await probeMedia(mediaPath) }
+  const foregroundMediaPath = metadata.foregroundPreview === undefined
+    ? undefined
+    : await resolveSourceChild(root, metadata.foregroundPreview, true)
+  const foregroundMetadata = foregroundMediaPath === undefined || !existsSync(foregroundMediaPath)
+    ? undefined
+    : foregroundMediaPath === mediaPath
+      ? backgroundMedia?.metadata
+      : await probeMedia(foregroundMediaPath)
   const durationFrames = backgroundMedia?.metadata.durationFrames ?? contract.manifest.durationInFrames
   const backgroundMediaUrl = mediaPath === undefined ? undefined : `/@fs${mediaPath}`
+  const foregroundMediaUrl = foregroundMediaPath === undefined || foregroundMetadata === undefined
+    ? undefined
+    : `/@fs${foregroundMediaPath}`
   const declaredBakedMap = bakedAnimationMap(contract.manifest)
   const bakedMap = Object.keys(declaredBakedMap).length > 0
     ? declaredBakedMap
-    : Object.fromEntries(
-        Object.values(runtime.elementMap).map((element) => {
-          const animation: BakedAnimationMetadata = {
-            id: `runtime-${element.id}`,
-            sceneId: element.sceneId,
-            elementId: element.id,
-            fromFrame: element.visibility.fromFrame,
-            durationFrames: Math.max(1, element.visibility.toFrame - element.visibility.fromFrame),
-            kind: 'runtime-entrance',
-            properties: ['opacity', 'transform'],
-            exportRole: 'baked-internal',
-          }
-          return [animation.id, animation]
-        }),
-      )
+    : runtime.animationMap
   const project: CourseProjectV2 = {
     version: 2,
     id,
@@ -378,6 +510,17 @@ export async function importHyperframesProject(
         durationFrames: animation.durationFrames,
         exportRole: animation.exportRole,
       })),
+      ...(foregroundMediaUrl === undefined || foregroundMetadata === undefined
+        ? {}
+        : {
+            foreground: {
+              id: `foreground-${id}`,
+              mediaUrl: foregroundMediaUrl,
+              durationFrames: foregroundMetadata.durationFrames,
+              audioPolicy: 'primary' as const,
+              window: DEFAULT_FOREGROUND_WINDOW,
+            },
+          }),
     },
     actionTemplates: [],
     actionInstances: [],
