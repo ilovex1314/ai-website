@@ -173,7 +173,7 @@ export function ShaderPortingTab({
                     <input
                       type="checkbox"
                       checked={Boolean(binding.value)}
-                      onChange={(event) => onChange({ ...state, verifiedRevision: null, customUniforms: { ...state.customUniforms, [name]: updateBindingValue(binding, 0, event.target.checked) } })}
+                      onChange={(event) => onChange({ ...state, customUniforms: { ...state.customUniforms, [name]: updateBindingValue(binding, 0, event.target.checked) } })}
                     />
                   </label>
                 ) : Array.isArray(binding.value) ? (
@@ -181,13 +181,13 @@ export function ShaderPortingTab({
                     <legend>{name} ({binding.type})</legend>
                     {binding.value.map((value, index) => (
                       <label key={index}>{index + 1}
-                        <input type="number" step="any" value={value} onChange={(event) => onChange({ ...state, verifiedRevision: null, customUniforms: { ...state.customUniforms, [name]: updateBindingValue(binding, index, event.target.value) } })} />
+                        <input type="number" step="any" value={value} onChange={(event) => onChange({ ...state, customUniforms: { ...state.customUniforms, [name]: updateBindingValue(binding, index, event.target.value) } })} />
                       </label>
                     ))}
                   </fieldset>
                 ) : (
                   <label>{name} ({binding.type})
-                    <input type="number" step={binding.type === 'int' ? 1 : 'any'} value={Number(binding.value)} onChange={(event) => onChange({ ...state, verifiedRevision: null, customUniforms: { ...state.customUniforms, [name]: updateBindingValue(binding, 0, event.target.value) } })} />
+                    <input type="number" step={binding.type === 'int' ? 1 : 'any'} value={Number(binding.value)} onChange={(event) => onChange({ ...state, customUniforms: { ...state.customUniforms, [name]: updateBindingValue(binding, 0, event.target.value) } })} />
                   </label>
                 )}
               </div>
