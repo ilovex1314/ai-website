@@ -9,20 +9,24 @@ React demo。第一版提交只负责建立应用框架、topic 数据和文档�
 1. ECharts 交互图表
    - 已按方案 A 实现富途风格折线行情图：范围切换、hover 交易信息、红绿趋势、成交量、拖拽与 reback。
    - 复现指引见 `docs/echarts-market-chart-guide.md`。
-2. Matter.js 物理实验
-   - 验证二维物理、直接拖拽、重置和可复现的初始场景。
+2. Spline 3D 嵌入
+   - 验证 iframe/embed 集成和优雅降级。
 3. Three.js 自定义 3D 场景
    - 验证非空 WebGL canvas、指针响应和稳定构图。
-4. Spline 3D 嵌入
-   - 验证 iframe/embed 集成和优雅降级。
-5. Shadertoy Shader 改造
-   - 验证 shader 运行时基础能力和可编辑 uniforms。
-6. Unicorn Studio WebGL 特效嵌入
+4. Shadertoy Studio（当前实现）
+   - A 作品展厅：四个原创单 Pass Shader、宿主 uniforms 与三种网站容器。
+   - B 引导实验室：五步理解 `fragCoord`、`iResolution`、形状数学、`iTime`、`iMouse` 和 custom uniforms。
+   - C 迁移工作台：分析并运行兼容的 WebGL 1/2 单 Pass；Channel、Buffer、音视频和多 Pass 显示明确迁移边界。
+5. Unicorn Studio WebGL 特效嵌入
    - 验证导出 HTML/embed 的隔离方式和本地 fallback 动效。
+6. Matter.js 物理实验
+   - 验证二维物理、直接拖拽、重置和可复现的初始场景。
 7. Rive 交互二维动画
    - 验证资源加载和预留给状态机输入的控制接口。
 8. Mapbox 交互地图
    - 验证 token 处理、地图渲染、样式切换和数据覆盖层。
+9. Remotion 课程动画制作台
+   - 验证本地媒体导入、课程时间线、动作库和成片导出工作流。
 
 ## 工作规则
 

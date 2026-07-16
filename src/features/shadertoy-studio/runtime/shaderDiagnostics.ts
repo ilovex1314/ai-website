@@ -11,7 +11,7 @@ export function parseShaderLog(
   profile: ShaderProfile,
   userLineOffset: number,
 ): ShaderDiagnostic[] {
-  return raw.split('\n').filter(Boolean).map((entry) => {
+  return raw.split('\n').map((entry) => entry.replaceAll(String.fromCharCode(0), '').trim()).filter(Boolean).map((entry) => {
     const angle = entry.match(patterns[0])
     const mesa = entry.match(patterns[1])
     const compiledLine = Number(angle?.[2] ?? mesa?.[1] ?? 0)

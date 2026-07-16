@@ -196,9 +196,10 @@
   .shader-gallery-grid,
   .shader-lab-grid,
   .shader-porting-grid { grid-template-columns: 1fr; }
+  .shader-stage { min-height: 0; }
   .shader-side-panel.shader-lab-editor { display: grid; grid-template-columns: 1fr; }
   .shader-code-input { min-height: 280px; }
-  .shader-stage[data-container='hero'] { aspect-ratio: 16 / 9; min-height: 220px; }
+  .shader-stage[data-container='hero'] { aspect-ratio: 16 / 9; min-height: 0; }
   .shader-section-heading { display: grid; }
 }
 

@@ -11,12 +11,22 @@ vibe-coding 调研结果拆成一个个可验证的前端能力样例。
 - ECharts 交互图表
 - Spline 3D 嵌入
 - Three.js 自定义 3D 场景
-- Shadertoy Shader 改造
+- Shadertoy Studio（三模式 Shader 学习与迁移工作台）
 - Unicorn Studio WebGL 特效嵌入
 - Matter.js 物理实验
 - Rive 交互二维动画
 - Mapbox 交互地图
 - Remotion 课程动画制作台
+
+## Shadertoy Studio
+
+入口：`/topics/shadertoy`，也可通过 `?view=gallery|lab|porting` 直接进入三种模式。
+
+- 作品展厅：四个原创、本地、无纹理依赖的单 Pass Shader，可切换背景、Hero、卡片容器以及速度、尺度、强度、颜色与渲染质量。
+- 引导实验室：五节可编辑实验，从 `fragCoord`、`iResolution`、形状数学和 `iTime` 走到 `iMouse` 与宿主 uniforms。
+- 迁移工作台：粘贴 Shadertoy `mainImage` 源码，先分析依赖，再运行兼容的 WebGL 1 / WebGL 2 单 Pass，成功后生成 React 接入配方。
+
+共享 runtime 支持 `iResolution`、`iTime`、`iTimeDelta`、`iFrame`、`iFrameRate`、`iMouse`、`iDate` 和 `iSampleRate`。首版不伪装支持 Buffer、`iChannel`、纹理、音视频、VR、键盘、摄像头或多 Pass；检测到这些能力时会显示 blocker 和迁移建议。
 
 ## Remotion 课程动画制作台
 
