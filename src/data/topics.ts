@@ -80,22 +80,22 @@ export const topics: Topic[] = [
   },
   {
     slug: 'shadertoy',
-    title: 'Shadertoy 着色器改编',
+    title: 'Shadertoy Studio',
     tool: 'Shadertoy GLSL',
     category: 'shader',
     summary:
-      '把 Shadertoy 作为成熟着色器创意来源，再将 GLSL 移植或简化到 React/WebGL 画布中，形成可控案例。',
+      '用作品展厅、五步引导实验和迁移工作台，把 fragment shader 的视觉、mainImage 运行模型与 React/WebGL 接入边界连成一条学习路径。',
     demoGoal:
-      '创建一个着色器背景案例，提供颜色、强度和速度等可编辑 uniforms，方便测试 prompt 驱动的视觉变化。',
+      '创建一个三模式 Shadertoy 工作台：体验四个原创单 Pass 作品，逐步修改 GLSL，并把兼容的 mainImage 源码迁移为可信的 React/WebGL 配方。',
     plannedInteractions: [
-      '提供一个轻量 shader runtime 包装。',
-      '把 uniform 控制暴露为 React 状态。',
-      '在引入更重的社区代码前，先保留一个轻量示例 shader。',
+      '在作品展厅切换四个原创 Shader、网站容器和 uniforms。',
+      '在五步实验中预测结果、编辑 mainImage、运行并查看解释。',
+      '分析粘贴源码的 Channel、Buffer、音视频、多 Pass 与 custom uniform 依赖。',
     ],
     acceptanceCriteria: [
-      'shader 能在 canvas 中渲染，且没有外部运行时错误。',
-      'uniform 控制会明显改变输出画面。',
-      '实现中记录 Shadertoy tabs/channels 的移植约束。',
+      '三个 Tab 共享原生 WebGL runtime，切换时只保留一个 context 并保存编辑状态。',
+      'WebGL 1/2 单 Pass 能编译运行，错误会映射源码行且保留最后成功画面。',
+      'Channel、Buffer、纹理、音视频和多 Pass 不被伪装支持，而是给出明确迁移建议。',
     ],
     references: ['https://www.shadertoy.com/browse'],
   },

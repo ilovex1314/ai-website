@@ -44,6 +44,15 @@ export function useShaderCanvas(options: ShaderCanvasOptions): {
   const mouseCallbackRef = useRef(options.onMouseChange)
   const [status, setStatus] = useState<ShaderRuntimeStatus>('initializing')
   const [runtimeGeneration, setRuntimeGeneration] = useState(0)
+  const compileRequestRef = useRef(options.request)
+  if (
+    compileRequestRef.current.profile !== options.request.profile
+    || compileRequestRef.current.revision !== options.request.revision
+    || compileRequestRef.current.source !== options.request.source
+  ) {
+    compileRequestRef.current = options.request
+  }
+  const compileRequest = compileRequestRef.current
 
   playingRef.current = options.playing
   qualityRef.current = options.quality
@@ -183,8 +192,8 @@ export function useShaderCanvas(options: ShaderCanvasOptions): {
   }, [])
 
   useEffect(() => {
-    activateRef.current?.(options.request)
-  }, [options.request])
+    activateRef.current?.(compileRequest)
+  }, [compileRequest])
 
   useEffect(() => {
     const runtime = runtimeRef.current

@@ -3,6 +3,7 @@ import { EchartsMarketDemo } from './features/market-chart/EchartsMarketDemo'
 import { CourseActionLibraryStudio } from './features/remotion-course-workbench/CourseActionLibraryStudio'
 import { RemotionCourseWorkbench } from './features/remotion-course-workbench/RemotionCourseWorkbench'
 import { SplineProductShowcase } from './features/spline-showcase/SplineProductShowcase'
+import { ShadertoyStudioPage } from './features/shadertoy-studio/ShadertoyStudioPage'
 import { ThreeModelerPage } from './features/threejs-modeler/ThreeModelerPage'
 import './App.css'
 
@@ -52,6 +53,10 @@ function TopicPage({ slug, child }: { slug: string; child?: string }) {
 
   if (slug === 'threejs') {
     return <ThreeModelerPage />
+  }
+
+  if (slug === 'shadertoy') {
+    return <ShadertoyStudioPage />
   }
 
   if (slug === 'remotion-course' && child === 'actions') {

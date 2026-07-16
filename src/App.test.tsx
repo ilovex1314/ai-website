@@ -1,6 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+
+vi.mock('./features/shadertoy-studio/runtime/ShaderCanvas', () => ({
+  ShaderCanvas: () => <div data-testid="shader-canvas-host" />,
+}))
 
 afterEach(() => {
   cleanup()
@@ -63,6 +67,13 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /添加立方体/ })).toBeInTheDocument()
     expect(screen.getByText(/可持久化数据结构/)).toBeInTheDocument()
+  })
+
+  it('renders Shadertoy Studio from the fourth topic route', () => {
+    window.history.pushState({}, '', '/topics/shadertoy')
+    render(<App />)
+    expect(screen.getByRole('heading', { level: 1, name: 'Shadertoy Studio' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
   })
 
   it('renders the Remotion course workbench from the URL slug', () => {
