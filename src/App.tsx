@@ -1,5 +1,6 @@
 import { getTopicBySlug, topics } from './data/topics'
 import { EchartsMarketDemo } from './features/market-chart/EchartsMarketDemo'
+import { LuckyDrawPage } from './features/lucky-draw/LuckyDrawPage'
 import { CourseActionLibraryStudio } from './features/remotion-course-workbench/CourseActionLibraryStudio'
 import { RemotionCourseWorkbench } from './features/remotion-course-workbench/RemotionCourseWorkbench'
 import { SplineProductShowcase } from './features/spline-showcase/SplineProductShowcase'
@@ -45,6 +46,10 @@ function HomePage() {
 function TopicPage({ slug, child }: { slug: string; child?: string }) {
   if (slug === 'echarts') {
     return <EchartsMarketDemo />
+  }
+
+  if (slug === 'lucky-draw') {
+    return <LuckyDrawPage />
   }
 
   if (slug === 'spline') {

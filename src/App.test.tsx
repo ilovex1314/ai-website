@@ -18,7 +18,7 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { name: /AI 网站案例实验室/i }),
     ).toBeInTheDocument()
-    expect(screen.getAllByRole('article')).toHaveLength(9)
+    expect(screen.getAllByRole('article')).toHaveLength(10)
     expect(screen.getByRole('link', { name: /ECharts 互动图表/i })).toHaveAttribute(
       'href',
       '/topics/echarts',
@@ -26,6 +26,10 @@ describe('App', () => {
     expect(
       screen.getByRole('link', { name: /Matter\.js 物理实验室/i }),
     ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /幸运号码抽奖/i })).toHaveAttribute(
+      'href',
+      '/topics/lucky-draw',
+    )
   })
 
   it('renders a topic detail page from the URL slug', () => {
@@ -97,5 +101,17 @@ describe('App', () => {
     expect(screen.getByText(/15 actions/)).toBeInTheDocument()
     expect(screen.getByText(/2 种资产类型/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /PPT 局部聚焦/ })).toBeInTheDocument()
+  })
+
+  it('renders the lucky draw page from its topic route', () => {
+    window.history.pushState({}, '', '/topics/lucky-draw')
+
+    render(<App />)
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: /幸运号码抽奖/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '领取号码牌' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '随机开奖' })).toBeInTheDocument()
   })
 })

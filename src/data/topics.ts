@@ -2,7 +2,7 @@ export type Topic = {
   slug: string
   title: string
   tool: string
-  category: 'charts' | '3d' | 'shader' | 'effects' | 'physics' | 'animation' | 'maps'
+  category: 'charts' | '3d' | 'shader' | 'effects' | 'physics' | 'animation' | 'maps' | 'utility'
   summary: string
   demoGoal: string
   plannedInteractions: string[]
@@ -11,6 +11,27 @@ export type Topic = {
 }
 
 export const topics: Topic[] = [
+  {
+    slug: 'lucky-draw',
+    title: '幸运号码抽奖',
+    tool: 'React + LocalStorage',
+    category: 'utility',
+    summary:
+      '纯前端活动抽奖工具：参与者按顺序领取号码牌，主持人再从当前号码池中随机抽取幸运号码。',
+    demoGoal:
+      '用两个清晰功能区完成顺序领号和随机开奖，并在当前浏览器中保存号码池进度，让活动主持人可以在一台设备上快速完成整场抽奖。',
+    plannedInteractions: [
+      '点击领取下一个连续号码牌。',
+      '从 1 到当前已领取人数中随机抽取一个号码。',
+      '重置当前浏览器中的号码池和开奖结果。',
+    ],
+    acceptanceCriteria: [
+      '领取号码从 1 开始连续递增且不重复。',
+      '开奖结果始终处于已领取号码范围内。',
+      '刷新页面后可恢复当前设备上的号码池。',
+    ],
+    references: [],
+  },
   {
     slug: 'echarts',
     title: 'ECharts 互动图表',

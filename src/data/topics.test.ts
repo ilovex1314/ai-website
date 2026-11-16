@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { topics } from './topics'
 
 describe('topics plan data', () => {
-  it('captures the nine researched vibe-coding demo tracks', () => {
+  it('captures the ten available demo tracks', () => {
     expect(topics.map((topic) => topic.slug)).toEqual([
+      'lucky-draw',
       'echarts',
       'spline',
       'threejs',
