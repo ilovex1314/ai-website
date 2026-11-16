@@ -17,7 +17,9 @@ jobs:
   deploy:
     name: Validate, test, build, and deploy
     runs-on: ubuntu-latest
-    environment: CLOUDFLARE_API_TOKEN
+    environment:
+      name: CLOUDFLARE_API_TOKEN
+      url: ${{ steps.deploy.outputs.deployment_url }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -53,7 +55,17 @@ jobs:
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
+        id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@3.90.0 pages deploy dist --project-name=ai-website --branch=main
+        run: |
+          set -o pipefail
+          deployment_log="$RUNNER_TEMP/wrangler-pages-deploy.log"
+          npx --yes wrangler@3.90.0 pages deploy dist --project-name=ai-website --branch=main 2>&1 | tee "$deployment_log"
+          deployment_url=$(sed -nE 's|.*(https://[^[:space:]]+\.pages\.dev).*|\1|p' "$deployment_log" | tail -n 1)
+          if [[ -z "$deployment_url" ]]; then
+            echo "::error::Cloudflare deployment completed without a detectable Pages URL"
+            exit 1
+          fi
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"

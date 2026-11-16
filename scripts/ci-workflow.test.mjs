@@ -16,4 +16,13 @@ describe('Cloudflare deployment workflow', () => {
     expect(testIndex).toBeGreaterThan(playwrightInstallIndex)
     expect(testIndex).toBeGreaterThan(ffmpegInstallIndex)
   })
+
+  it('publishes the exact Cloudflare Pages URL with the deployment status', async () => {
+    const workflow = await readFile(workflowPath, 'utf8')
+
+    expect(workflow).toContain('url: ${{ steps.deploy.outputs.deployment_url }}')
+    expect(workflow).toContain('id: deploy')
+    expect(workflow).toContain('deployment_url=')
+    expect(workflow).toContain('$GITHUB_OUTPUT')
+  })
 })
