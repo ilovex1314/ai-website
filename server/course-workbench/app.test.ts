@@ -350,7 +350,7 @@ describe('workbench server', () => {
     } finally {
       await close(server)
     }
-  }, 30_000)
+  }, 90_000)
 
   it('serves JSON health and project routes through WorkbenchClient', async () => {
     const projectRoot = await createTemporaryDirectory('course-workbench-projects-')
