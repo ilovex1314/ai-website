@@ -63,4 +63,3 @@
 - [ ] Re-run focused tests and verify they pass.
 - [ ] Run lint, production build, and the full non-rendering test suite; document the known Remotion cold-render timeout separately.
 - [ ] Commit the page implementation.
-
